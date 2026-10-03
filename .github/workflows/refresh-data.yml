@@ -1,0 +1,44 @@
+# GitHub Actions workflow -- see CLOUD_SETUP.md for where this file goes.
+#
+# Runs fetch_research_data.py on GitHub's own servers every weekday after NSE
+# close, commits the refreshed research_data.json back into the repo. Once
+# GitHub Pages is enabled on this repo, research-dashboard.html (which already
+# auto-loads research_data.json on page open) will always show that day's data
+# -- just visit the Pages URL, nothing to run or click.
+
+name: Refresh Nifty Research Data
+
+on:
+  schedule:
+    # 11:00 UTC = 4:30pm IST, after NSE market close. GitHub's free scheduler
+    # is not exact-to-the-minute, especially at peak load -- treat this as
+    # "sometime in the following 30-60 minutes", not a guaranteed exact time.
+    - cron: '0 11 * * 1-5'
+  workflow_dispatch: {}   # lets you click "Run workflow" manually from the Actions tab anytime
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install yfinance pandas
+
+      - name: Fetch latest data
+        run: python fetch_research_data.py
+
+      - name: Commit updated data file
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add research_data.json
+          git diff --staged --quiet || git commit -m "Auto-refresh research_data.json"
+          git push

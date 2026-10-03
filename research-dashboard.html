@@ -82,6 +82,23 @@
   .screener-tile .go{display:inline-block;margin-top:10px;font-family:var(--mono);font-size:11px;color:var(--saffron);}
   .foot-note{color:var(--ink-dim);font-size:11px;line-height:1.6;margin-top:20px;border-top:1px solid var(--line);padding-top:14px;}
   .data-stamp{font-family:var(--mono);font-size:11px;color:var(--ink-dim);}
+
+  #marketContextBar{display:flex;gap:18px;flex-wrap:wrap;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 18px;margin-bottom:18px;}
+  .mc-item{display:flex;flex-direction:column;}
+  .mc-item .mc-lbl{font-size:10px;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.06em;}
+  .mc-item .mc-val{font-family:var(--mono);font-size:15px;font-weight:700;}
+
+  .pattern-checks{display:flex;flex-wrap:wrap;gap:8px 14px;margin:4px 0 14px;padding:10px 12px;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;}
+  .pattern-checks label{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--ink);cursor:pointer;}
+  .pattern-checks input{accent-color:var(--saffron);}
+
+  .pick-card{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:10px;}
+  .pick-top{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;}
+  .pick-top h4{margin:0;font-size:16px;}
+  .pick-score{font-family:var(--mono);font-size:20px;font-weight:700;color:var(--saffron);}
+  .pick-meta{font-family:var(--mono);font-size:11.5px;color:var(--ink-dim);margin-top:4px;}
+  .pick-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:6px 14px;margin-top:10px;font-family:var(--mono);font-size:12px;}
+  .pick-grid .k{color:var(--ink-dim);font-size:10px;text-transform:uppercase;}
 </style>
 </head>
 <body>
@@ -117,15 +134,22 @@
     </div>
   </div>
 
+  <div id="marketContextBar" style="display:none;"></div>
+
   <div id="mainContent">
     <div class="panel">
       <div class="tabs">
-        <div class="tab-btn active" id="tabByStock">Research a stock</div>
+        <div class="tab-btn active" id="tabTopPicks">Top Picks</div>
+        <div class="tab-btn" id="tabByStock">Research a stock</div>
         <div class="tab-btn" id="tabByPattern">Filter by pattern</div>
         <div class="tab-btn" id="tabScreeners">Live screeners</div>
       </div>
 
-      <div id="viewByStock">
+      <div id="viewTopPicks">
+        <div id="topPicksWrap"></div>
+      </div>
+
+      <div id="viewByStock" style="display:none;">
         <div class="controls-row">
           <label>Stock (mcap ≥ filter)</label>
           <select id="stockSelect"></select>
@@ -136,10 +160,9 @@
 
       <div id="viewByPattern" style="display:none;">
         <div class="controls-row">
-          <label>Pattern</label>
-          <select id="patternSelect"></select>
           <label>Timeframe</label>
           <select id="timeframeSelect">
+            <option value="ALL">All timeframes</option>
             <option value="D">Daily</option>
             <option value="W">Weekly</option>
             <option value="M">Monthly</option>
@@ -150,7 +173,10 @@
             <option value="confirmed">Breakout confirmed</option>
             <option value="candidate">Still forming</option>
           </select>
+          <button class="secondary" id="patSelectAll">Select all patterns</button>
+          <button class="secondary" id="patSelectNone">Clear</button>
         </div>
+        <div id="patternCheckboxes" class="pattern-checks"></div>
         <div id="patternTableWrap"></div>
       </div>
 
@@ -174,7 +200,7 @@
   </div>
 
   <div class="foot-note" id="footNote" style="display:none;">
-    Heuristic swing-pivot pattern detection, not a certified charting engine or investment advice &mdash; I'm not a licensed advisor. "Retest" checks whether price revisited the breakout level within a timeframe-scaled window; "support held" checks it didn't close back through that level in the following few sessions. "Successful/Failed" outcome is based on the 30-trading-day forward return relative to breakout direction, so very recent breakouts show "In Progress" until that window completes. Historical evidence stats aggregate every instance found across your loaded universe and history depth &mdash; small n means a rougher estimate, shown next to each stat. Data is a static snapshot from your last script run; see the script for scheduling it to refresh automatically each day.
+    Heuristic swing-pivot pattern detection, not a certified charting engine or investment advice &mdash; I'm not a licensed advisor. "Retest" checks whether price revisited the breakout level within a timeframe-scaled window; "support held" checks it didn't close back through that level in the following few sessions. "Successful/Failed" outcome is based on the 30-trading-day forward return relative to breakout direction, so very recent breakouts show "In Progress" until that window completes. Historical evidence stats aggregate every instance found across your loaded universe and history depth &mdash; small n means a rougher estimate, shown next to each stat. Target/Stop-loss use each pattern's own measured-move geometry where one exists, falling back to an ATR-based estimate otherwise (reversals, volume/OBV signals) -- these are mechanical projections, not guarantees; always sanity-check against the chart. The Top Picks conviction score is a weighted blend of recency, volume, relative strength, fundamentals, historical pattern success rate, and risk-reward -- it's a shortlist to start research from, not a buy signal. Accumulation/Distribution flag OBV-vs-price divergence over a rolling window and can lag real sentiment shifts. Data is a static snapshot from your last script run; see the script for scheduling it to refresh automatically each day.
   </div>
 </div>
 
@@ -185,18 +211,20 @@
   let universe = {}; // filtered by mcap
   let stockPatterns = {}; // symbol -> {D:[...],W:[...],M:[...]} evaluated instances
   let allPatternsFlat = []; // for cross-stock aggregation & pattern browsing
+  let marketContext = {nifty:null, vix:null, niftyReturn1m:null, niftyReturn3m:null};
 
-  const PATTERN_TYPES = ["Head & Shoulders","Inverse H&S","Double Top","Double Bottom","Rectangle Breakout","Cup & Handle","Symmetrical Triangle","Reversal (Bottom)","Reversal (Top)"];
+  const PATTERN_TYPES = ["Head & Shoulders","Inverse H&S","Double Top","Double Bottom","Rectangle Breakout","Cup & Handle","Symmetrical Triangle","Reversal (Bottom)","Reversal (Top)","Volume Breakout","Accumulation","Distribution"];
   const DIR = {
     "Head & Shoulders":"bearish","Inverse H&S":"bullish","Double Top":"bearish",
     "Double Bottom":"bullish","Rectangle Breakout":"both","Cup & Handle":"bullish",
-    "Symmetrical Triangle":"both","Reversal (Bottom)":"bullish","Reversal (Top)":"bearish"
+    "Symmetrical Triangle":"both","Reversal (Bottom)":"bullish","Reversal (Top)":"bearish",
+    "Volume Breakout":"both","Accumulation":"bullish","Distribution":"bearish"
   };
 
   const TF_CONFIG = {
-    D: {pivotLB:4, minSepDouble:8, cupMin:15, cupMax:200, handleMax:40, retestWindow:15, reversalLookback:60, triMin:15, triMax:150},
-    W: {pivotLB:3, minSepDouble:4, cupMin:8,  cupMax:60,  handleMax:15, retestWindow:40, reversalLookback:26, triMin:8,  triMax:52},
-    M: {pivotLB:2, minSepDouble:3, cupMin:4,  cupMax:24,  handleMax:6,  retestWindow:90, reversalLookback:12, triMin:4,  triMax:24}
+    D: {pivotLB:4, minSepDouble:8, cupMin:15, cupMax:200, handleMax:40, retestWindow:15, reversalLookback:60, triMin:15, triMax:150, pvLookback:20, volSpikeLookback:20, rangeLookback:20, atrPeriod:14},
+    W: {pivotLB:3, minSepDouble:4, cupMin:8,  cupMax:60,  handleMax:15, retestWindow:40, reversalLookback:26, triMin:8,  triMax:52,  pvLookback:10, volSpikeLookback:10, rangeLookback:10, atrPeriod:14},
+    M: {pivotLB:2, minSepDouble:3, cupMin:4,  cupMax:24,  handleMax:6,  retestWindow:90, reversalLookback:12, triMin:4,  triMax:24,  pvLookback:6,  volSpikeLookback:6,  rangeLookback:6,  atrPeriod:14}
   };
 
   // ---------- resampling ----------
@@ -426,11 +454,63 @@
     };
   }
 
+  // price breaks a recent N-bar range on a volume spike -- a standalone confirmation signal,
+  // independent of the geometric patterns above
+  function detectVolumeBreakout(tf, cfg){
+    const {close,high,low,volume} = tf;
+    const found=[];
+    const lb = cfg.rangeLookback, vlb = cfg.volSpikeLookback;
+    for (let i=vlb; i<close.length; i++){
+      if (i<lb+1) continue;
+      let avgVol=0; for(let k=i-vlb;k<i;k++) avgVol+=volume[k]; avgVol/=vlb;
+      if (!avgVol || volume[i] < avgVol*1.5) continue; // needs a genuine spike
+      const rangeHigh = Math.max(...high.slice(i-lb,i));
+      const rangeLow = Math.min(...low.slice(i-lb,i));
+      if (close[i] > rangeHigh){
+        found.push({type:"Volume Breakout",dir:"bullish",pivots:[{idx:i-lb,price:rangeHigh},{idx:i,price:rangeHigh}],formedIdx:i,breakoutIdx:i});
+      } else if (close[i] < rangeLow){
+        found.push({type:"Volume Breakout",dir:"bearish",pivots:[{idx:i-lb,price:rangeLow},{idx:i,price:rangeLow}],formedIdx:i,breakoutIdx:i});
+      }
+    }
+    // keep only the start of each cluster (avoid flagging every day of a multi-day move)
+    const dedup=[]; for (const f of found){ if(!dedup.some(g=>g.dir===f.dir && f.formedIdx-g.formedIdx<lb)) dedup.push(f); }
+    return dedup;
+  }
+
+  // OBV vs price divergence: flat/sideways price with rising OBV = quiet accumulation;
+  // flat/firm price with falling OBV = distribution into strength
+  function detectAccumulationDistribution(tf, cfg){
+    const {close,volume} = tf;
+    const found=[];
+    const lb = cfg.pvLookback;
+    if (close.length < lb+2) return found;
+    const obv = new Array(close.length).fill(0);
+    for (let i=1;i<close.length;i++){
+      obv[i] = obv[i-1] + (close[i]>close[i-1]?volume[i]: close[i]<close[i-1]?-volume[i]:0);
+    }
+    let prevState = null;
+    for (let i=lb; i<close.length; i++){
+      const priceChangePct = (close[i]-close[i-lb])/close[i-lb]*100;
+      let avgVol=0; for(let k=i-lb;k<i;k++) avgVol+=volume[k]; avgVol/=lb;
+      const netOBV = obv[i]-obv[i-lb];
+      const normOBV = avgVol ? netOBV/(avgVol*lb) : 0;
+      let state = null;
+      if (Math.abs(priceChangePct) <= 4 && normOBV > 0.15) state='Accumulation';
+      else if (Math.abs(priceChangePct) <= 4 && normOBV < -0.15) state='Distribution';
+      if (state && state!==prevState){
+        found.push({type:state, dir: state==='Accumulation'?'bullish':'bearish', pivots:[{idx:i-lb,price:close[i-lb]},{idx:i,price:close[i]}], formedIdx:i, breakoutIdx:i});
+      }
+      prevState = state;
+    }
+    return found;
+  }
+
   function detectAll(tf, cfg){
     return [].concat(
       detectHeadShoulders(tf,cfg), detectInverseHS(tf,cfg), detectDoubleTop(tf,cfg),
       detectDoubleBottom(tf,cfg), detectRectangle(tf,cfg), detectCupHandle(tf,cfg),
-      detectSymTriangle(tf,cfg), detectReversal(tf,cfg)
+      detectSymTriangle(tf,cfg), detectReversal(tf,cfg),
+      detectVolumeBreakout(tf,cfg), detectAccumulationDistribution(tf,cfg)
     );
   }
 
@@ -468,7 +548,83 @@
     let outcome='In Progress';
     if (fwd.r30!=null){ const success = dir==='bullish'? fwd.r30>1 : fwd.r30<-1; outcome = success?'Successful':'Failed'; }
     p.retest=retest; p.supportHeld=supportHeld; p.forward=fwd; p.outcome=outcome; p.dailyIdx=dIdx;
+    computeTradePlan(p, tf, cfg);
     return p;
+  }
+
+  // Average True Range, used as a fallback height estimate for patterns without clean geometry
+  function atr(tf, period, idx){
+    if (idx<period) return null;
+    let sum=0;
+    for (let k=idx-period+1;k<=idx;k++){
+      const tr = Math.max(
+        tf.high[k]-tf.low[k],
+        Math.abs(tf.high[k]-tf.close[k-1]),
+        Math.abs(tf.low[k]-tf.close[k-1])
+      );
+      sum += tr;
+    }
+    return sum/period;
+  }
+
+  // Measured-move target + structural stop-loss, per pattern type's own geometry where possible,
+  // falling back to an ATR-based projection for patterns without a clean "height" (reversals,
+  // volume/OBV signals, triangle edge cases).
+  function computeTradePlan(p, tf, cfg){
+    if (p.breakoutIdx==null) return;
+    const dir = p.dir==='both' ? (DIR[p.type]==='bearish' || (p.pivots && p.pivots.length && p.breakoutPrice < p.pivots[0].price) ? 'bearish':'bullish') : p.dir;
+    const bp = p.breakoutPrice;
+    let height = null, stop = null;
+    const pv = p.pivots || [];
+    switch(p.type){
+      case "Head & Shoulders": { // pivots: [P1,L1,P2(head),L2,P3]
+        const neckline = (pv[1].price+pv[3].price)/2;
+        height = pv[2].price - neckline;
+        stop = Math.max(pv[0].price, pv[4].price); // above the shoulders
+        break;
+      }
+      case "Inverse H&S": { // pivots: [P1,H1,P2(head),H2,P3]
+        const neckline = (pv[1].price+pv[3].price)/2;
+        height = neckline - pv[2].price;
+        stop = Math.min(pv[0].price, pv[4].price);
+        break;
+      }
+      case "Double Top": { height = pv[0].price-pv[1].price; stop = Math.max(pv[0].price,pv[2].price); break; }
+      case "Double Bottom": { height = pv[1].price-pv[0].price; stop = Math.min(pv[0].price,pv[2].price); break; }
+      case "Rectangle Breakout": {
+        const prices = pv.map(x=>x.price);
+        const resistance = Math.max(...prices), support = Math.min(...prices);
+        height = resistance-support;
+        stop = dir==='bullish' ? support : resistance;
+        break;
+      }
+      case "Cup & Handle": { // pivots: [H1,bottom,H2,handle]
+        const rim = Math.max(pv[0].price,pv[2].price);
+        height = rim - pv[1].price;
+        stop = pv[3].price;
+        break;
+      }
+      case "Symmetrical Triangle": { // pivots: [H1,L1,H2,L2]
+        height = Math.abs(pv[0].price-pv[1].price); // width at the wider/earlier point
+        stop = dir==='bullish' ? Math.min(pv[1].price,pv[3].price) : Math.max(pv[0].price,pv[2].price);
+        break;
+      }
+      case "Reversal (Bottom)": { height = Math.max(bp - p.level, 0) * 2 || null; stop = p.level*0.985; break; }
+      case "Reversal (Top)": { height = Math.max(p.level - bp, 0) * 2 || null; stop = p.level*1.015; break; }
+      default: break; // Volume Breakout / Accumulation / Distribution -> ATR fallback below
+    }
+    if (!height || height<=0){
+      const a = atr(tf, cfg.atrPeriod, p.breakoutIdx);
+      height = a ? a*2 : bp*0.03; // last-resort: 3% of price if ATR unavailable
+      if (stop==null){
+        const aStop = atr(tf, cfg.atrPeriod, p.breakoutIdx);
+        stop = dir==='bullish' ? bp-(aStop||bp*0.015) : bp+(aStop||bp*0.015);
+      }
+    }
+    const target = dir==='bullish' ? bp+height : bp-height;
+    if (stop==null) stop = dir==='bullish' ? bp-height*0.5 : bp+height*0.5;
+    const risk = Math.abs(bp-stop), reward = Math.abs(target-bp);
+    p.target = target; p.stop = stop; p.riskReward = risk ? reward/risk : null;
   }
 
   // volume ratio at breakout vs trailing average, within a given timeframe series
@@ -577,17 +733,48 @@
   }
 
   // ---------- build everything after data load ----------
+  function stockReturn(closes, dates, lookbackDays){
+    const i = closes.length-1;
+    if (i<lookbackDays) return null;
+    return (closes[i]-closes[i-lookbackDays])/closes[i-lookbackDays]*100;
+  }
+
   function buildUniverseAndPatterns(){
     const threshold = parseFloat(document.getElementById('mcapFilter').value)||0;
     universe = {};
     Object.keys(rawData).forEach(sym=>{
+      if (sym.startsWith('_')) return; // index/VIX series, not part of the stock universe
       const mc = rawData[sym].marketCapCr;
       if (mc==null || mc>=threshold) universe[sym]=rawData[sym];
     });
+
+    // market context
+    const niftyData = rawData['_NIFTY_INDEX'], vixData = rawData['_INDIA_VIX'];
+    marketContext = {nifty:null, vix:null, niftyReturn1m:null, niftyReturn3m:null};
+    if (niftyData && niftyData.close.length>200){
+      marketContext.nifty = overallTrend(niftyData.close,50,200);
+      marketContext.niftyReturn1m = stockReturn(niftyData.close, niftyData.dates, 21);
+      marketContext.niftyReturn3m = stockReturn(niftyData.close, niftyData.dates, 63);
+    }
+    if (vixData && vixData.close.length){
+      const v = vixData.close[vixData.close.length-1];
+      marketContext.vix = {value:v, label: v<13?'Low / Complacent': v<=20?'Normal':'Elevated / Fear', cls: v<13?'neutral': v<=20?'good':'bearish'};
+    }
+
     stockPatterns = {}; allPatternsFlat = [];
     Object.keys(universe).forEach(sym=>{
       const daily = universe[sym];
       if (daily.close.length<80) return;
+
+      // relative strength vs Nifty
+      const r1 = stockReturn(daily.close, daily.dates, 21), r3 = stockReturn(daily.close, daily.dates, 63);
+      daily.rs1m = (r1!=null && marketContext.niftyReturn1m!=null) ? r1-marketContext.niftyReturn1m : null;
+      daily.rs3m = (r3!=null && marketContext.niftyReturn3m!=null) ? r3-marketContext.niftyReturn3m : null;
+      // liquidity: average daily traded value over the last 20 sessions, in Rs crore
+      const n = daily.close.length, lb = Math.min(20, n);
+      let turnoverSum=0; for (let k=n-lb;k<n;k++) turnoverSum += daily.close[k]*(daily.volume[k]||0);
+      daily.avgDailyTurnoverCr = (turnoverSum/lb)/1e7;
+
       const weekly = resample(daily,'W'), monthly = resample(daily,'M');
       const perTF = {};
       [['D',daily],['W',weekly],['M',monthly]].forEach(([mode,tf])=>{
@@ -646,6 +833,84 @@
   function fmtDate(d){ return d? d.toISOString().slice(0,10) : '—'; }
 
   // ---------- render: stock detail ----------
+  // ---------- market context banner ----------
+  function renderMarketContext(){
+    const bar = document.getElementById('marketContextBar');
+    if (!marketContext.nifty && !marketContext.vix){ bar.style.display='none'; return; }
+    bar.style.display='flex';
+    const nifty = marketContext.nifty;
+    bar.innerHTML = `
+      ${nifty ? `
+      <div class="mc-item"><div class="mc-lbl">Nifty 50 trend</div><div class="mc-val"><span class="badge ${nifty.cls}">${nifty.label}</span></div></div>
+      <div class="mc-item"><div class="mc-lbl">Nifty 1m / 3m</div><div class="mc-val ${pctClass(marketContext.niftyReturn1m)}">${fmtPct(marketContext.niftyReturn1m)} / <span class="${pctClass(marketContext.niftyReturn3m)}">${fmtPct(marketContext.niftyReturn3m)}</span></div></div>
+      ` : ''}
+      ${marketContext.vix ? `<div class="mc-item"><div class="mc-lbl">India VIX</div><div class="mc-val"><span class="badge ${marketContext.vix.cls}">${marketContext.vix.value.toFixed(1)} · ${marketContext.vix.label}</span></div></div>` : ''}
+      <div class="mc-item" style="margin-left:auto;font-size:11px;color:var(--ink-dim);max-width:360px;">
+        ${nifty && nifty.label!=='Bullish' ? 'Index isn\'t clearly bullish right now -- treat individual bullish breakouts with extra caution.' : nifty ? 'Index trend supports bullish setups right now.' : ''}
+      </div>
+    `;
+  }
+
+  // ---------- Top Picks digest ----------
+  function convictionScore(p, sym){
+    let score = 0, maxScore = 0;
+    // 1. recency -- a breakout from a while ago is a stale "top pick"
+    const recencyBars = p.dailyIdx!=null ? (universe[sym].close.length-1-p.dailyIdx) : 999;
+    const recencyScore = recencyBars<=3 ? 100 : recencyBars<=7 ? 70 : recencyBars<=15 ? 40 : 10;
+    score += recencyScore*0.20; maxScore += 100*0.20;
+    // 2. volume confirmation (candidates here are always timeframe==='D')
+    const vr = volumeRatio(universe[sym], p.breakoutIdx, 20);
+    const volScore = vr==null?40: Math.max(0,Math.min(100, 40+vr));
+    score += volScore*0.15; maxScore += 100*0.15;
+    // 3. relative strength vs Nifty
+    const rs = universe[sym].rs1m;
+    const rsScore = rs==null?40: Math.max(0,Math.min(100, 50+rs*3));
+    score += rsScore*0.20; maxScore += 100*0.20;
+    // 4. fundamentals
+    const {overall} = computeFundamentals(sym);
+    score += (overall==null?40:overall)*0.20; maxScore += 100*0.20;
+    // 5. historical success rate of this pattern+timeframe
+    const agg = aggregate(p.type, p.timeframe);
+    const histScore = agg.successRate==null?50:agg.successRate;
+    score += histScore*0.15; maxScore += 100*0.15;
+    // 6. risk-reward
+    const rrScore = p.riskReward==null?40:Math.max(0,Math.min(100, p.riskReward*33));
+    score += rrScore*0.10; maxScore += 100*0.10;
+    return maxScore ? (score/maxScore*100) : 0;
+  }
+
+  function renderTopPicks(){
+    const wrap = document.getElementById('topPicksWrap');
+    if (!Object.keys(universe).length){ wrap.innerHTML = '<div class="empty">Load data to see today\'s top picks.</div>'; return; }
+    const candidates = allPatternsFlat.filter(p=>{
+      if (p.timeframe!=='D' || p.breakoutIdx==null) return false;
+      const recencyBars = universe[p.symbol].close.length-1-p.dailyIdx;
+      return recencyBars<=10; // only genuinely recent breakouts count as "today's" picks
+    });
+    const scored = candidates.map(p=>({p, score: convictionScore(p, p.symbol)}));
+    scored.sort((a,b)=>b.score-a.score);
+    const top = scored.slice(0,15);
+    if (!top.length){ wrap.innerHTML = '<div class="empty">No confirmed breakouts in the last 10 sessions across your loaded universe. Check back tomorrow, or browse "Filter by pattern" for forming setups.</div>'; return; }
+    wrap.innerHTML = `<p style="color:var(--ink-dim);font-size:12px;">Top ${top.length} recent breakouts (daily, last 10 sessions), ranked by a composite score: recency + volume confirmation + relative strength vs Nifty + fundamentals + this pattern's historical success rate + risk-reward. Not a recommendation to buy -- a shortlist to start your own research from.</p>` +
+      top.map(({p,score})=>{
+        const mc = universe[p.symbol].marketCapCr;
+        return `
+        <div class="pick-card">
+          <div class="pick-top">
+            <h4>${p.symbol} <span style="font-weight:400;font-size:12px;color:var(--ink-dim);">${p.type}</span></h4>
+            <div class="pick-score">${score.toFixed(0)}</div>
+          </div>
+          <div class="pick-meta">Breakout ${fmtDate(p.breakoutDate)} @ ₹${p.breakoutPrice.toFixed(2)} &middot; mcap ₹${mc?mc.toLocaleString():'—'} Cr &middot; RS(1m) ${fmtPct(universe[p.symbol].rs1m)}</div>
+          <div class="pick-grid">
+            <div><div class="k">Target</div>${p.target?'₹'+p.target.toFixed(2):'—'}</div>
+            <div><div class="k">Stop</div>${p.stop?'₹'+p.stop.toFixed(2):'—'}</div>
+            <div><div class="k">R:R</div>${p.riskReward?p.riskReward.toFixed(2):'—'}</div>
+            <div><div class="k">10d / 20d / 30d</div><span class="${pctClass(p.forward.r10)}">${fmtPct(p.forward.r10)}</span> / <span class="${pctClass(p.forward.r20)}">${fmtPct(p.forward.r20)}</span> / <span class="${pctClass(p.forward.r30)}">${fmtPct(p.forward.r30)}</span></div>
+          </div>
+        </div>`;
+      }).join('');
+  }
+
   function renderStockDetail(sym){
     const wrap = document.getElementById('stockDetailWrap');
     if (!sym || !universe[sym]){ wrap.innerHTML='<div class="empty">Select a stock above.</div>'; return; }
@@ -681,7 +946,7 @@
     wrap.innerHTML = `
       <div class="stock-head">
         <h3>${sym}</h3>
-        <span class="sub">₹${last.toFixed(2)} &middot; mcap ₹${daily.marketCapCr?daily.marketCapCr.toLocaleString():'—'} Cr &middot; ${fmtDate(daily.dates[daily.dates.length-1])}</span>
+        <span class="sub">₹${last.toFixed(2)} &middot; mcap ₹${daily.marketCapCr?daily.marketCapCr.toLocaleString():'—'} Cr &middot; RS vs Nifty (1m/3m): <span class="${pctClass(daily.rs1m)}">${fmtPct(daily.rs1m)}</span> / <span class="${pctClass(daily.rs3m)}">${fmtPct(daily.rs3m)}</span> &middot; avg daily turnover ₹${daily.avgDailyTurnoverCr?daily.avgDailyTurnoverCr.toFixed(1):'—'} Cr &middot; ${fmtDate(daily.dates[daily.dates.length-1])}</span>
       </div>
       <div id="tvChartContainer" style="height:500px;margin-bottom:18px;border:1px solid var(--line);border-radius:8px;overflow:hidden;"></div>
       <div class="tf-grid">
@@ -696,6 +961,9 @@
           <div class="kv"><span class="k">Support Held</span><span class="v">${curD.retest? `<span class="badge ${curD.supportHeld?'yes':'no'}">${curD.supportHeld?'YES':'NO'}</span>` : '—'}</span></div>
           <div class="kv"><span class="k">Volume</span><span class="v">${volRatio==null?'—':(volRatio>=0?'+':'')+volRatio.toFixed(0)+'% vs average'}</span></div>
           <div class="kv"><span class="k">Current Outcome</span><span class="v"><span class="badge ${curD.outcome==='Successful'?'successful':curD.outcome==='Failed'?'failed':'progress'}">${curD.outcome}</span></span></div>
+          <div class="kv"><span class="k">Target</span><span class="v">${curD.target?'₹'+curD.target.toFixed(2):'—'}</span></div>
+          <div class="kv"><span class="k">Stop-loss</span><span class="v">${curD.stop?'₹'+curD.stop.toFixed(2):'—'}</span></div>
+          <div class="kv"><span class="k">Risk : Reward</span><span class="v">${curD.riskReward?'1 : '+curD.riskReward.toFixed(2):'—'}</span></div>
           ${keyLevelRow}
           ` : `<div class="kv"><span class="k">Note</span><span class="v" style="font-weight:400;">${curD?'Pattern forming, no breakout yet':'No qualifying pattern detected recently'}</span></div>`}
           <div class="kv" style="margin-top:6px;border-top:1px dashed var(--line);padding-top:6px;"><span class="k">Nearest Support</span><span class="v">${levels.support?`₹${levels.support.toFixed(2)} (${(((last-levels.support)/levels.support)*100).toFixed(1)}% below)`:'—'}</span></div>
@@ -827,11 +1095,17 @@
   }
 
   // ---------- render: pattern browse ----------
+  function selectedPatternTypes(){
+    return Array.from(document.querySelectorAll('#patternCheckboxes input:checked')).map(cb=>cb.value);
+  }
+
   function renderPatternTable(){
-    const type = document.getElementById('patternSelect').value;
-    const tf = document.getElementById('timeframeSelect').value;
+    const types = selectedPatternTypes();
+    const tf = document.getElementById('timeframeSelect').value; // 'ALL' | 'D' | 'W' | 'M'
     const statusF = document.getElementById('statusFilterSel').value;
-    let insts = allPatternsFlat.filter(p=>p.type===type && p.timeframe===tf);
+    const wrap = document.getElementById('patternTableWrap');
+    if (!types.length){ wrap.innerHTML = `<div class="empty">Select at least one pattern above.</div>`; return; }
+    let insts = allPatternsFlat.filter(p=> types.includes(p.type) && (tf==='ALL' || p.timeframe===tf));
     if (statusF==='confirmed') insts = insts.filter(p=>p.breakoutIdx!=null);
     if (statusF==='candidate') insts = insts.filter(p=>p.breakoutIdx==null);
     insts.sort((a,b)=>{
@@ -839,20 +1113,23 @@
       const bi=b.breakoutIdx!=null?b.breakoutIdx+100000:b.formedIdx;
       return bi-ai;
     });
-    const wrap = document.getElementById('patternTableWrap');
-    if (!insts.length){ wrap.innerHTML = `<div class="empty">No ${type} instances on ${tf==='D'?'Daily':tf==='W'?'Weekly':'Monthly'} charts in the loaded universe.</div>`; return; }
+    if (!insts.length){ wrap.innerHTML = `<div class="empty">No matching instances in the loaded universe for this selection.</div>`; return; }
+    const showTFCol = tf==='ALL';
     wrap.innerHTML = `<table>
-      <thead><tr><th>Stock</th><th>Mcap (Cr)</th><th>Status</th><th>Breakout</th><th>10d</th><th>20d</th><th>30d</th><th>Outcome</th></tr></thead>
+      <thead><tr><th>Stock</th><th>Mcap (Cr)</th><th>Pattern</th>${showTFCol?'<th>TF</th>':''}<th>Status</th><th>Breakout</th><th>Target</th><th>Stop</th><th>R:R</th><th>30d</th><th>Outcome</th></tr></thead>
       <tbody>${insts.map(p=>{
         const st = statusLabel(p.timeframe,p);
         const mc = universe[p.symbol] && universe[p.symbol].marketCapCr;
         return `<tr class="clickable" data-sym="${p.symbol}">
           <td>${p.symbol}</td>
           <td>${mc?mc.toLocaleString():'—'}</td>
+          <td>${p.type}</td>
+          ${showTFCol?`<td>${p.timeframe}</td>`:''}
           <td><span class="badge ${st.cls}">${st.label}</span></td>
           <td>${p.breakoutIdx!=null?fmtDate(p.breakoutDate):'—'}</td>
-          <td class="${pctClass(p.forward.r10)}">${fmtPct(p.forward.r10)}</td>
-          <td class="${pctClass(p.forward.r20)}">${fmtPct(p.forward.r20)}</td>
+          <td>${p.target?'₹'+p.target.toFixed(2):'—'}</td>
+          <td>${p.stop?'₹'+p.stop.toFixed(2):'—'}</td>
+          <td>${p.riskReward?p.riskReward.toFixed(2):'—'}</td>
           <td class="${pctClass(p.forward.r30)}">${fmtPct(p.forward.r30)}</td>
           <td>${p.outcome}</td>
         </tr>`;
@@ -880,40 +1157,38 @@
     stockSel.onchange = ()=>renderStockDetail(stockSel.value);
     if (Object.keys(universe).length) renderStockDetail(stockSel.value);
 
-    const patSel = document.getElementById('patternSelect');
-    patSel.innerHTML='';
-    PATTERN_TYPES.forEach(t=>{ const o=document.createElement('option'); o.value=t; o.textContent=t; patSel.appendChild(o); });
-    patSel.onchange = renderPatternTable;
-    document.getElementById('timeframeSelect').onchange = renderPatternTable;
-    document.getElementById('statusFilterSel').onchange = renderPatternTable;
+    const checksWrap = document.getElementById('patternCheckboxes');
+    if (!checksWrap.dataset.filled){
+      checksWrap.innerHTML = PATTERN_TYPES.map(t=>`<label><input type="checkbox" value="${t}" checked> ${t}</label>`).join('');
+      checksWrap.dataset.filled='1';
+      checksWrap.addEventListener('change', renderPatternTable);
+      document.getElementById('patSelectAll').addEventListener('click', ()=>{
+        checksWrap.querySelectorAll('input').forEach(cb=>cb.checked=true); renderPatternTable();
+      });
+      document.getElementById('patSelectNone').addEventListener('click', ()=>{
+        checksWrap.querySelectorAll('input').forEach(cb=>cb.checked=false); renderPatternTable();
+      });
+      document.getElementById('timeframeSelect').onchange = renderPatternTable;
+      document.getElementById('statusFilterSel').onchange = renderPatternTable;
+    }
     renderPatternTable();
   }
 
   // ---------- tabs ----------
-  document.getElementById('tabByStock').addEventListener('click', ()=>{
-    document.getElementById('tabByStock').classList.add('active');
-    document.getElementById('tabByPattern').classList.remove('active');
-    document.getElementById('tabScreeners').classList.remove('active');
-    document.getElementById('viewByStock').style.display='block';
-    document.getElementById('viewByPattern').style.display='none';
-    document.getElementById('viewScreeners').style.display='none';
-  });
-  document.getElementById('tabByPattern').addEventListener('click', ()=>{
-    document.getElementById('tabByPattern').classList.add('active');
-    document.getElementById('tabByStock').classList.remove('active');
-    document.getElementById('tabScreeners').classList.remove('active');
-    document.getElementById('viewByPattern').style.display='block';
-    document.getElementById('viewByStock').style.display='none';
-    document.getElementById('viewScreeners').style.display='none';
-  });
-  document.getElementById('tabScreeners').addEventListener('click', ()=>{
-    document.getElementById('tabScreeners').classList.add('active');
-    document.getElementById('tabByStock').classList.remove('active');
-    document.getElementById('tabByPattern').classList.remove('active');
-    document.getElementById('viewScreeners').style.display='block';
-    document.getElementById('viewByStock').style.display='none';
-    document.getElementById('viewByPattern').style.display='none';
-    populateScreenerGrid();
+  const TABS = [
+    {btn:'tabTopPicks', view:'viewTopPicks', onShow: renderTopPicks},
+    {btn:'tabByStock', view:'viewByStock'},
+    {btn:'tabByPattern', view:'viewByPattern'},
+    {btn:'tabScreeners', view:'viewScreeners', onShow: populateScreenerGrid}
+  ];
+  TABS.forEach(t=>{
+    document.getElementById(t.btn).addEventListener('click', ()=>{
+      TABS.forEach(o=>{
+        document.getElementById(o.btn).classList.toggle('active', o===t);
+        document.getElementById(o.view).style.display = o===t ? 'block' : 'none';
+      });
+      if (t.onShow) t.onShow();
+    });
   });
 
   // ---------- live screener grid (Chartink -- link tiles, since they block iframe embedding) ----------
@@ -979,12 +1254,15 @@
         };
       });
       buildUniverseAndPatterns();
-      document.getElementById('fileStatus').textContent = `Loaded ${Object.keys(rawData).length} symbols${sourceLabel?` (${sourceLabel})`:''}.`;
+      const stockCount = Object.keys(rawData).filter(s=>!s.startsWith('_')).length;
+      document.getElementById('fileStatus').textContent = `Loaded ${stockCount} symbols${sourceLabel?` (${sourceLabel})`:''}.`;
       document.getElementById('dataStamp').textContent = generatedStamp ? `Data fetched: ${generatedStamp}` : '';
       document.getElementById('progressWrap').style.display='none';
       document.getElementById('mainContent').style.display='block';
       document.getElementById('footNote').style.display='block';
+      renderMarketContext();
       populateSelectors();
+      renderTopPicks();
       return true;
     }catch(err){
       document.getElementById('fileStatus').textContent = 'Could not parse file: '+err.message;
@@ -1043,7 +1321,9 @@
   document.getElementById('mcapFilter').addEventListener('change', ()=>{
     if (Object.keys(rawData).length){
       buildUniverseAndPatterns();
+      renderMarketContext();
       populateSelectors();
+      renderTopPicks();
     }
   });
 })();

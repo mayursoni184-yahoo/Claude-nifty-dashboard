@@ -101,7 +101,10 @@ def get_universe(args):
 
 
 def fetch_one(yf, symbol, period="4y", retries=3):
-    ticker_str = f"{symbol}.NS"
+    return fetch_ticker(yf, f"{symbol}.NS", period, retries, want_fundamentals=True)
+
+
+def fetch_ticker(yf, ticker_str, period="4y", retries=3, want_fundamentals=False):
     ticker = yf.Ticker(ticker_str)
     for attempt in range(retries):
         try:
@@ -111,27 +114,28 @@ def fetch_one(yf, symbol, period="4y", retries=3):
             df = df.dropna(subset=["Open", "High", "Low", "Close"])
             mcap = None
             fundamentals = {}
-            try:
-                info = ticker.get_info()
-                mcap = info.get("marketCap")
-                fundamentals = {
-                    "trailingPE": info.get("trailingPE"),
-                    "priceToBook": info.get("priceToBook"),
-                    "returnOnEquity": info.get("returnOnEquity"),
-                    "returnOnAssets": info.get("returnOnAssets"),
-                    "debtToEquity": info.get("debtToEquity"),
-                    "revenueGrowth": info.get("revenueGrowth"),
-                    "earningsGrowth": info.get("earningsGrowth"),
-                    "profitMargins": info.get("profitMargins"),
-                    "operatingMargins": info.get("operatingMargins"),
-                    "dividendYield": info.get("dividendYield"),
-                    "currentRatio": info.get("currentRatio"),
-                    "sector": info.get("sector"),
-                    "industry": info.get("industry"),
-                    "beta": info.get("beta"),
-                }
-            except Exception:
-                pass
+            if want_fundamentals:
+                try:
+                    info = ticker.get_info()
+                    mcap = info.get("marketCap")
+                    fundamentals = {
+                        "trailingPE": info.get("trailingPE"),
+                        "priceToBook": info.get("priceToBook"),
+                        "returnOnEquity": info.get("returnOnEquity"),
+                        "returnOnAssets": info.get("returnOnAssets"),
+                        "debtToEquity": info.get("debtToEquity"),
+                        "revenueGrowth": info.get("revenueGrowth"),
+                        "earningsGrowth": info.get("earningsGrowth"),
+                        "profitMargins": info.get("profitMargins"),
+                        "operatingMargins": info.get("operatingMargins"),
+                        "dividendYield": info.get("dividendYield"),
+                        "currentRatio": info.get("currentRatio"),
+                        "sector": info.get("sector"),
+                        "industry": info.get("industry"),
+                        "beta": info.get("beta"),
+                    }
+                except Exception:
+                    pass
             return {
                 "dates": [d.strftime("%Y-%m-%d") for d in df.index],
                 "open": [round(float(v), 2) for v in df["Open"]],
@@ -179,6 +183,17 @@ def main():
             failed.append(sym)
             print("failed")
         time.sleep(0.3)
+
+    print("Fetching NIFTY 50 index (market context) ...", end=" ", flush=True)
+    nifty_idx = fetch_ticker(yf, "^NSEI", period=args.period)
+    print("ok" if nifty_idx else "failed")
+
+    print("Fetching India VIX (market context) ...", end=" ", flush=True)
+    india_vix = fetch_ticker(yf, "^INDIAVIX", period=args.period)
+    print("ok" if india_vix else "failed")
+
+    if nifty_idx: data["_NIFTY_INDEX"] = nifty_idx
+    if india_vix: data["_INDIA_VIX"] = india_vix
 
     with open(args.out, "w") as f:
         json.dump({"generated": time.strftime("%Y-%m-%d %H:%M:%S"), "data": data}, f)

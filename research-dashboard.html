@@ -1,0 +1,1052 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NIFTY Research Dashboard</title>
+<style>
+  :root{
+    --bg:#0b0f14; --panel:#121821; --panel-2:#161d28; --line:#22303f;
+    --ink:#e7edf3; --ink-dim:#8ea2b5;
+    --saffron:#ff9f43; --green:#35c58f; --red:#ef5b6b; --blue:#5b9bf0;
+    --mono:"IBM Plex Mono","Menlo","Consolas",monospace; --sans:"Inter","Segoe UI",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);}
+  body{padding:24px 20px 60px;}
+  .wrap{max-width:1220px;margin:0 auto;}
+  header{border-bottom:1px solid var(--line);padding-bottom:16px;margin-bottom:20px;}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.18em;color:var(--saffron);text-transform:uppercase;}
+  h1{margin:4px 0 6px;font-size:25px;}
+  header p{margin:0;color:var(--ink-dim);font-size:13px;max-width:680px;}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin-bottom:18px;}
+  .panel h2{margin:0 0 12px;font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-dim);font-weight:600;}
+  .load-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+  button{background:var(--saffron);color:#1a1206;border:none;border-radius:6px;padding:9px 16px;font-weight:700;font-size:13px;cursor:pointer;}
+  button.secondary{background:transparent;border:1px solid var(--line);color:var(--ink);font-weight:500;}
+  input[type=text],input[type=number]{background:var(--panel-2);border:1px solid var(--line);color:var(--ink);padding:8px 10px;border-radius:6px;font-family:var(--mono);font-size:12px;}
+  select{background:var(--panel-2);border:1px solid var(--line);color:var(--ink);padding:8px 10px;border-radius:6px;font-size:13px;}
+  label{font-size:12px;color:var(--ink-dim);}
+
+  .tabs{display:flex;gap:6px;margin-bottom:14px;}
+  .tab-btn{background:var(--panel-2);border:1px solid var(--line);color:var(--ink-dim);padding:7px 14px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;}
+  .tab-btn.active{background:var(--saffron);color:#1a1206;border-color:var(--saffron);}
+
+  .stock-head{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px;margin-bottom:14px;}
+  .stock-head h3{margin:0;font-size:20px;}
+  .stock-head .sub{font-family:var(--mono);font-size:12px;color:var(--ink-dim);}
+  .tf-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px;}
+  @media(max-width:900px){.tf-grid{grid-template-columns:1fr;}}
+  .tf-card{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:14px 16px;}
+  .tf-card h4{margin:0 0 10px;font-size:12px;text-transform:uppercase;letter-spacing:.1em;color:var(--saffron);border-bottom:1px solid var(--line);padding-bottom:8px;}
+  .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;font-size:13px;margin-bottom:4px;}
+  .kv .k{color:var(--ink-dim);}
+  .kv .v{text-align:right;font-weight:600;}
+  .badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:10.5px;font-weight:700;}
+  .badge.yes, .badge.confirmed, .badge.active, .badge.successful, .badge.bullish{background:rgba(53,197,143,.15);color:var(--green);}
+  .badge.no, .badge.failed, .badge.bearish{background:rgba(239,91,107,.15);color:var(--red);}
+  .badge.candidate, .badge.progress, .badge.neutral, .badge.avg{background:rgba(255,159,67,.15);color:var(--saffron);}
+  .badge.nopattern{background:rgba(142,162,181,.15);color:var(--ink-dim);}
+  .badge.excellent{background:rgba(53,197,143,.2);color:var(--green);}
+  .badge.good{background:rgba(91,155,240,.18);color:var(--blue);}
+  .badge.weak{background:rgba(239,91,107,.15);color:var(--red);}
+  .fund-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:10px;}
+  .fund-stat{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;}
+  .fund-stat .lbl{font-size:10.5px;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.05em;}
+  .fund-stat .val{font-family:var(--mono);font-size:15px;font-weight:700;margin-top:2px;}
+  .fund-stat .rating{font-size:10px;margin-top:3px;}
+
+  table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px;}
+  th,td{text-align:left;padding:7px 9px;border-bottom:1px solid var(--line);}
+  th{color:var(--ink-dim);text-transform:uppercase;font-size:9.5px;letter-spacing:.05em;}
+  td.pos{color:var(--green);} td.neg{color:var(--red);}
+  tr.clickable{cursor:pointer;} tr.clickable:hover{background:var(--panel-2);}
+
+  .evidence-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:12px;}
+  .ev-stat{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;}
+  .ev-stat .lbl{font-size:10.5px;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.05em;}
+  .ev-stat .val{font-family:var(--mono);font-size:18px;font-weight:700;margin-top:2px;}
+
+  .controls-row{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:14px;}
+  .progress-wrap{margin-top:12px;display:none;}
+  .progress-bar{height:6px;background:var(--panel-2);border-radius:4px;overflow:hidden;}
+  .progress-fill{height:100%;background:var(--saffron);width:0%;transition:width .2s;}
+  .progress-label{font-family:var(--mono);font-size:11px;color:var(--ink-dim);margin-top:6px;}
+  .log{font-family:var(--mono);font-size:11px;color:var(--ink-dim);max-height:70px;overflow-y:auto;margin-top:8px;}
+  .empty{color:var(--ink-dim);font-size:13px;padding:24px 0;text-align:center;}
+  .screener-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;}
+  .screener-tile{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:18px;text-decoration:none;display:block;transition:border-color .15s,transform .15s;}
+  .screener-tile:hover{border-color:var(--saffron);transform:translateY(-1px);}
+  .screener-tile h4{margin:0 0 6px;font-size:15px;color:var(--ink);}
+  .screener-tile p{margin:0;font-size:12px;color:var(--ink-dim);line-height:1.5;}
+  .screener-tile .go{display:inline-block;margin-top:10px;font-family:var(--mono);font-size:11px;color:var(--saffron);}
+  .foot-note{color:var(--ink-dim);font-size:11px;line-height:1.6;margin-top:20px;border-top:1px solid var(--line);padding-top:14px;}
+  .data-stamp{font-family:var(--mono);font-size:11px;color:var(--ink-dim);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">NSE &middot; Multi-timeframe Pattern Research</div>
+    <h1>NIFTY Research Dashboard</h1>
+    <p>Daily / Weekly / Monthly pattern status per stock, with retest &amp; support-hold tracking, plus cross-market historical evidence for each pattern type &mdash; browse by stock or by pattern, either direction.</p>
+    <div class="data-stamp" id="dataStamp"></div>
+  </header>
+
+  <div class="panel">
+    <h2>1. Load data</h2>
+    <p style="color:var(--ink-dim);font-size:12px;margin-top:-4px;">
+      Run <code>fetch_research_data.py</code> locally (see the script's docstring for how to schedule it daily so this is always fresh), then load the JSON it produces.
+    </p>
+    <div class="load-row">
+      <button id="refreshBtn">🔄 Refresh data now</button>
+      <button class="secondary" id="loadFileBtn">Load data file manually</button>
+      <input type="file" id="fileInput" accept="application/json" style="display:none;">
+      <label>Min market cap (₹ Cr)</label>
+      <input type="number" id="mcapFilter" value="3000" style="width:100px;">
+      <span id="fileStatus" style="color:var(--ink-dim);font-size:12px;"></span>
+    </div>
+    <div style="color:var(--ink-dim);font-size:11px;margin-top:6px;">
+      "Refresh data now" only works when this page was opened via <code>run_daily.py</code> (it calls that script's local server) &mdash;
+      it re-runs the fetch and reloads automatically, no file needed. Can take a few minutes for a large universe.
+    </div>
+    <div class="progress-wrap" id="progressWrap">
+      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+      <div class="progress-label" id="progressLabel"></div>
+      <div class="log" id="log"></div>
+    </div>
+  </div>
+
+  <div id="mainContent">
+    <div class="panel">
+      <div class="tabs">
+        <div class="tab-btn active" id="tabByStock">Research a stock</div>
+        <div class="tab-btn" id="tabByPattern">Filter by pattern</div>
+        <div class="tab-btn" id="tabScreeners">Live screeners</div>
+      </div>
+
+      <div id="viewByStock">
+        <div class="controls-row">
+          <label>Stock (mcap ≥ filter)</label>
+          <select id="stockSelect"></select>
+          <span id="universeCount" style="color:var(--ink-dim);font-size:12px;"></span>
+        </div>
+        <div id="stockDetailWrap"><div class="empty">Select a stock above.</div></div>
+      </div>
+
+      <div id="viewByPattern" style="display:none;">
+        <div class="controls-row">
+          <label>Pattern</label>
+          <select id="patternSelect"></select>
+          <label>Timeframe</label>
+          <select id="timeframeSelect">
+            <option value="D">Daily</option>
+            <option value="W">Weekly</option>
+            <option value="M">Monthly</option>
+          </select>
+          <label>Status</label>
+          <select id="statusFilterSel">
+            <option value="all">All</option>
+            <option value="confirmed">Breakout confirmed</option>
+            <option value="candidate">Still forming</option>
+          </select>
+        </div>
+        <div id="patternTableWrap"></div>
+      </div>
+
+      <div id="viewScreeners" style="display:none;">
+        <p style="color:var(--ink-dim);font-size:12px;">
+          Chartink blocks iframe embedding on their end, so these open in a new tab rather than embedding inline &mdash;
+          still one click, still live, still refreshes automatically on their side. Add
+          "latest market capitalization &gt; 3000" in each screener's query editor (open it, click Edit Query)
+          to apply your cap filter permanently, once per screener.
+        </p>
+        <div class="controls-row">
+          <label>Quick chart lookup (any NSE symbol, no data file needed)</label>
+          <input type="text" id="quickChartSymbol" placeholder="e.g. RELIANCE" style="width:160px;">
+          <button class="secondary" id="quickChartBtn">Show chart</button>
+        </div>
+        <div id="quickChartContainer" style="height:500px;margin-bottom:20px;border:1px solid var(--line);border-radius:8px;overflow:hidden;display:none;"></div>
+
+        <div id="screenerGrid" class="screener-grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot-note" id="footNote" style="display:none;">
+    Heuristic swing-pivot pattern detection, not a certified charting engine or investment advice &mdash; I'm not a licensed advisor. "Retest" checks whether price revisited the breakout level within a timeframe-scaled window; "support held" checks it didn't close back through that level in the following few sessions. "Successful/Failed" outcome is based on the 30-trading-day forward return relative to breakout direction, so very recent breakouts show "In Progress" until that window completes. Historical evidence stats aggregate every instance found across your loaded universe and history depth &mdash; small n means a rougher estimate, shown next to each stat. Data is a static snapshot from your last script run; see the script for scheduling it to refresh automatically each day.
+  </div>
+</div>
+
+<script>
+(function(){
+  let rawData = {}; // symbol -> {dates(Date[]),open,high,low,close,volume,marketCapCr}
+  let generatedStamp = '';
+  let universe = {}; // filtered by mcap
+  let stockPatterns = {}; // symbol -> {D:[...],W:[...],M:[...]} evaluated instances
+  let allPatternsFlat = []; // for cross-stock aggregation & pattern browsing
+
+  const PATTERN_TYPES = ["Head & Shoulders","Inverse H&S","Double Top","Double Bottom","Rectangle Breakout","Cup & Handle","Symmetrical Triangle","Reversal (Bottom)","Reversal (Top)"];
+  const DIR = {
+    "Head & Shoulders":"bearish","Inverse H&S":"bullish","Double Top":"bearish",
+    "Double Bottom":"bullish","Rectangle Breakout":"both","Cup & Handle":"bullish",
+    "Symmetrical Triangle":"both","Reversal (Bottom)":"bullish","Reversal (Top)":"bearish"
+  };
+
+  const TF_CONFIG = {
+    D: {pivotLB:4, minSepDouble:8, cupMin:15, cupMax:200, handleMax:40, retestWindow:15, reversalLookback:60, triMin:15, triMax:150},
+    W: {pivotLB:3, minSepDouble:4, cupMin:8,  cupMax:60,  handleMax:15, retestWindow:40, reversalLookback:26, triMin:8,  triMax:52},
+    M: {pivotLB:2, minSepDouble:3, cupMin:4,  cupMax:24,  handleMax:6,  retestWindow:90, reversalLookback:12, triMin:4,  triMax:24}
+  };
+
+  // ---------- resampling ----------
+  function resample(d, mode){
+    if (mode==='D') return d;
+    const buckets = {};
+    const order = [];
+    d.dates.forEach((dt,i)=>{
+      let key;
+      if (mode==='W'){
+        const tmp = new Date(dt); const day = (tmp.getDay()+6)%7; // Mon=0
+        tmp.setDate(tmp.getDate()-day);
+        key = tmp.toISOString().slice(0,10);
+      } else {
+        key = dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0');
+      }
+      if (!buckets[key]){ buckets[key] = {open:d.open[i],high:d.high[i],low:d.low[i],close:d.close[i],volume:d.volume[i],date:dt}; order.push(key); }
+      else {
+        const b = buckets[key];
+        b.high = Math.max(b.high, d.high[i]); b.low = Math.min(b.low, d.low[i]);
+        b.close = d.close[i]; b.volume += d.volume[i]; b.date = dt;
+      }
+    });
+    return {
+      dates: order.map(k=>buckets[k].date),
+      open: order.map(k=>buckets[k].open), high: order.map(k=>buckets[k].high),
+      low: order.map(k=>buckets[k].low), close: order.map(k=>buckets[k].close),
+      volume: order.map(k=>buckets[k].volume)
+    };
+  }
+
+  // ---------- pivots ----------
+  function findPivots(arr, isHigh, lb){
+    const pivots=[];
+    for (let i=lb;i<arr.length-lb;i++){
+      let ok=true;
+      for (let j=i-lb;j<=i+lb;j++){ if(j===i)continue; if(isHigh? arr[j]>arr[i] : arr[j]<arr[i]){ok=false;break;} }
+      if (ok) pivots.push({idx:i, price:arr[i]});
+    }
+    return pivots;
+  }
+  function within(a,b,tol){ return Math.abs(a-b)/((a+b)/2) <= tol; }
+
+  // ---------- pattern detectors (generic over any {close,high,low,dates}) ----------
+  function detectHeadShoulders(tf, cfg){
+    const {close,high,low} = tf; const highs=findPivots(high,true,cfg.pivotLB), lows=findPivots(low,false,cfg.pivotLB);
+    const found=[];
+    for (let i=0;i<highs.length-2;i++){
+      const P1=highs[i],P2=highs[i+1],P3=highs[i+2];
+      if (!(P2.price>P1.price && P2.price>P3.price)) continue;
+      if (!within(P1.price,P3.price,0.06)) continue;
+      const L1=lows.find(l=>l.idx>P1.idx&&l.idx<P2.idx), L2=lows.find(l=>l.idx>P2.idx&&l.idx<P3.idx);
+      if (!L1||!L2) continue;
+      if (!within(L1.price,L2.price,0.06)) continue;
+      let breakoutIdx=null;
+      for (let k=P3.idx+1;k<close.length;k++){ if (k>L2.idx && close[k]<L2.price*0.995){breakoutIdx=k;break;} }
+      found.push({type:"Head & Shoulders",dir:"bearish",pivots:[P1,L1,P2,L2,P3],formedIdx:P3.idx,breakoutIdx});
+    }
+    return found;
+  }
+  function detectInverseHS(tf, cfg){
+    const {close,high,low} = tf; const highs=findPivots(high,true,cfg.pivotLB), lows=findPivots(low,false,cfg.pivotLB);
+    const found=[];
+    for (let i=0;i<lows.length-2;i++){
+      const P1=lows[i],P2=lows[i+1],P3=lows[i+2];
+      if (!(P2.price<P1.price && P2.price<P3.price)) continue;
+      if (!within(P1.price,P3.price,0.06)) continue;
+      const H1=highs.find(h=>h.idx>P1.idx&&h.idx<P2.idx), H2=highs.find(h=>h.idx>P2.idx&&h.idx<P3.idx);
+      if (!H1||!H2) continue;
+      if (!within(H1.price,H2.price,0.06)) continue;
+      let breakoutIdx=null;
+      for (let k=P3.idx+1;k<close.length;k++){ if (k>H2.idx && close[k]>H2.price*1.005){breakoutIdx=k;break;} }
+      found.push({type:"Inverse H&S",dir:"bullish",pivots:[P1,H1,P2,H2,P3],formedIdx:P3.idx,breakoutIdx});
+    }
+    return found;
+  }
+  function detectDoubleTop(tf, cfg){
+    const {close,high,low} = tf; const highs=findPivots(high,true,cfg.pivotLB), lows=findPivots(low,false,cfg.pivotLB);
+    const found=[];
+    for (let i=0;i<highs.length-1;i++){
+      const P1=highs[i],P2=highs[i+1];
+      if (P2.idx-P1.idx<cfg.minSepDouble) continue;
+      if (!within(P1.price,P2.price,0.025)) continue;
+      const trough=lows.find(l=>l.idx>P1.idx&&l.idx<P2.idx); if(!trough) continue;
+      if ((P1.price-trough.price)/P1.price<0.02) continue;
+      let breakoutIdx=null;
+      for (let k=P2.idx+1;k<close.length;k++){ if(close[k]<trough.price*0.995){breakoutIdx=k;break;} }
+      found.push({type:"Double Top",dir:"bearish",pivots:[P1,trough,P2],formedIdx:P2.idx,breakoutIdx});
+    }
+    return found;
+  }
+  function detectDoubleBottom(tf, cfg){
+    const {close,high,low} = tf; const highs=findPivots(high,true,cfg.pivotLB), lows=findPivots(low,false,cfg.pivotLB);
+    const found=[];
+    for (let i=0;i<lows.length-1;i++){
+      const P1=lows[i],P2=lows[i+1];
+      if (P2.idx-P1.idx<cfg.minSepDouble) continue;
+      if (!within(P1.price,P2.price,0.025)) continue;
+      const peak=highs.find(h=>h.idx>P1.idx&&h.idx<P2.idx); if(!peak) continue;
+      if ((peak.price-P1.price)/P1.price<0.02) continue;
+      let breakoutIdx=null;
+      for (let k=P2.idx+1;k<close.length;k++){ if(close[k]>peak.price*1.005){breakoutIdx=k;break;} }
+      found.push({type:"Double Bottom",dir:"bullish",pivots:[P1,peak,P2],formedIdx:P2.idx,breakoutIdx});
+    }
+    return found;
+  }
+  function detectRectangle(tf, cfg){
+    const {close,high,low} = tf; const highs=findPivots(high,true,cfg.pivotLB), lows=findPivots(low,false,cfg.pivotLB);
+    const found=[];
+    for (let i=0;i<highs.length-1;i++){
+      const clusterHighs = highs.filter(h=>Math.abs(h.idx-highs[i].idx)<Math.max(40,cfg.pivotLB*10) && within(h.price,highs[i].price,0.02));
+      if (clusterHighs.length<2) continue;
+      const lo=Math.min(...clusterHighs.map(h=>h.idx)), hi=Math.max(...clusterHighs.map(h=>h.idx));
+      const resistance = clusterHighs.reduce((a,b)=>a+b.price,0)/clusterHighs.length;
+      const clusterLows = lows.filter(l=>l.idx>=lo-10&&l.idx<=hi+10);
+      const grouped = clusterLows.filter((l,idx,arr)=>arr.some(o=>within(o.price,l.price,0.02)));
+      if (grouped.length<2) continue;
+      const support = grouped.reduce((a,b)=>a+b.price,0)/grouped.length;
+      if ((resistance-support)/support<0.03) continue;
+      if (hi-lo<15) continue;
+      const lastPivotIdx = Math.max(hi,...grouped.map(l=>l.idx));
+      let breakoutIdx=null, breakDir=null;
+      for (let k=lastPivotIdx+1;k<close.length;k++){
+        if (close[k]>resistance*1.005){breakoutIdx=k;breakDir='bullish';break;}
+        if (close[k]<support*0.995){breakoutIdx=k;breakDir='bearish';break;}
+      }
+      found.push({type:"Rectangle Breakout",dir:breakDir||"both",pivots:[...clusterHighs,...grouped].sort((a,b)=>a.idx-b.idx),formedIdx:lastPivotIdx,breakoutIdx});
+    }
+    const dedup=[]; for (const f of found){ if(!dedup.some(g=>Math.abs(g.formedIdx-f.formedIdx)<10)) dedup.push(f); }
+    return dedup;
+  }
+  function detectCupHandle(tf, cfg){
+    const {close,high,low} = tf; const highs=findPivots(high,true,cfg.pivotLB), lows=findPivots(low,false,cfg.pivotLB);
+    const found=[];
+    for (let i=0;i<highs.length-1;i++){
+      const H1=highs[i];
+      const rimCandidates = highs.filter(h=>h.idx>H1.idx && (h.idx-H1.idx)>=cfg.cupMin && (h.idx-H1.idx)<=cfg.cupMax && within(h.price,H1.price,0.06));
+      if (!rimCandidates.length) continue;
+      const H2 = rimCandidates[0];
+      const midLows = lows.filter(l=>l.idx>H1.idx && l.idx<H2.idx);
+      if (!midLows.length) continue;
+      const bottom = midLows.reduce((a,b)=> b.price<a.price?b:a, midLows[0]);
+      const rimAvg = (H1.price+H2.price)/2;
+      const depth = (rimAvg-bottom.price)/rimAvg*100;
+      if (depth<10) continue; // too shallow to be a cup
+      // require bottom roughly in the middle third
+      const span = H2.idx-H1.idx;
+      if ((bottom.idx-H1.idx) < span*0.2 || (bottom.idx-H1.idx) > span*0.8) continue;
+      // handle: shallow pullback shortly after H2
+      const handleLows = lows.filter(l=>l.idx>H2.idx && (l.idx-H2.idx)<=cfg.handleMax);
+      if (!handleLows.length) continue;
+      const handle = handleLows[0];
+      const handleDepth = (H2.price-handle.price)/H2.price*100;
+      if (handleDepth<=0 || handleDepth > depth*0.5) continue; // handle should be shallower than cup
+      const rim = Math.max(H1.price,H2.price);
+      let breakoutIdx=null;
+      for (let k=handle.idx+1;k<close.length;k++){ if(close[k]>rim*1.005){breakoutIdx=k;break;} }
+      found.push({type:"Cup & Handle",dir:"bullish",pivots:[H1,bottom,H2,handle],formedIdx:handle.idx,breakoutIdx});
+    }
+    return found;
+  }
+
+  function detectSymTriangle(tf, cfg){
+    const {close,high,low} = tf; const highs=findPivots(high,true,cfg.pivotLB), lows=findPivots(low,false,cfg.pivotLB);
+    const found=[];
+    for (let i=0;i<highs.length-1;i++){
+      for (let j=0;j<lows.length-1;j++){
+        const H1=highs[i],H2=highs[i+1],L1=lows[j],L2=lows[j+1];
+        if (H2.idx<=H1.idx || L2.idx<=L1.idx) continue;
+        if (!(H2.price<H1.price)) continue;     // lower highs
+        if (!(L2.price>L1.price)) continue;     // higher lows
+        const spanStart = Math.min(H1.idx,L1.idx), spanEnd = Math.max(H2.idx,L2.idx);
+        const span = spanEnd-spanStart;
+        if (span<cfg.triMin || span>cfg.triMax) continue;
+        // require decent overlap between the two trendline segments in time
+        if (Math.abs(H1.idx-L1.idx) > span*0.5) continue;
+        const upperAt = idx => H1.price + (H2.price-H1.price)*(idx-H1.idx)/(H2.idx-H1.idx);
+        const lowerAt = idx => L1.price + (L2.price-L1.price)*(idx-L1.idx)/(L2.idx-L1.idx);
+        const widthStart = upperAt(spanStart)-lowerAt(spanStart);
+        const widthEnd = upperAt(spanEnd)-lowerAt(spanEnd);
+        if (!(widthEnd < widthStart*0.7) || widthEnd<=0) continue; // must be genuinely converging
+        const formedIdx = spanEnd;
+        let breakoutIdx=null, breakDir=null;
+        for (let k=formedIdx+1;k<close.length;k++){
+          const u=upperAt(k), l=lowerAt(k);
+          if (close[k]>u*1.005){breakoutIdx=k;breakDir='bullish';break;}
+          if (close[k]<l*0.995){breakoutIdx=k;breakDir='bearish';break;}
+        }
+        found.push({type:"Symmetrical Triangle",dir:breakDir||"both",pivots:[H1,L1,H2,L2],formedIdx,breakoutIdx});
+      }
+    }
+    const dedup=[]; for (const f of found){ if(!dedup.some(g=>Math.abs(g.formedIdx-f.formedIdx)<10)) dedup.push(f); }
+    return dedup;
+  }
+
+  function detectReversal(tf, cfg){
+    const {close,high,low} = tf; const highs=findPivots(high,true,cfg.pivotLB), lows=findPivots(low,false,cfg.pivotLB);
+    const found=[];
+    const lookbackStart = Math.max(0, close.length-cfg.reversalLookback);
+    const recentLows = lows.filter(l=>l.idx>=lookbackStart);
+    const recentHighs = highs.filter(h=>h.idx>=lookbackStart);
+    if (recentLows.length){
+      const L = recentLows[recentLows.length-1];
+      let breakoutIdx=null;
+      for (let k=L.idx+1;k<close.length;k++){ if (close[k]>=L.price*1.03){breakoutIdx=k;break;} }
+      found.push({type:"Reversal (Bottom)",dir:"bullish",pivots:[L],formedIdx:L.idx,breakoutIdx,level:L.price,levelType:'support'});
+    }
+    if (recentHighs.length){
+      const H = recentHighs[recentHighs.length-1];
+      let breakoutIdx=null;
+      for (let k=H.idx+1;k<close.length;k++){ if (close[k]<=H.price*0.97){breakoutIdx=k;break;} }
+      found.push({type:"Reversal (Top)",dir:"bearish",pivots:[H],formedIdx:H.idx,breakoutIdx,level:H.price,levelType:'resistance'});
+    }
+    return found;
+  }
+
+  // nearest live support/resistance from recent swing points, independent of any specific pattern
+  function nearestLevels(daily, lookback=120){
+    const highs = findPivots(daily.high,true,4), lows = findPivots(daily.low,false,4);
+    const startIdx = Math.max(0, daily.close.length-lookback);
+    const price = daily.close[daily.close.length-1];
+    const supportsBelow = lows.filter(l=>l.idx>=startIdx && l.price<price).sort((a,b)=>b.price-a.price);
+    const resistancesAbove = highs.filter(h=>h.idx>=startIdx && h.price>price).sort((a,b)=>a.price-b.price);
+    return {
+      support: supportsBelow[0] ? supportsBelow[0].price : null,
+      resistance: resistancesAbove[0] ? resistancesAbove[0].price : null
+    };
+  }
+
+  function detectAll(tf, cfg){
+    return [].concat(
+      detectHeadShoulders(tf,cfg), detectInverseHS(tf,cfg), detectDoubleTop(tf,cfg),
+      detectDoubleBottom(tf,cfg), detectRectangle(tf,cfg), detectCupHandle(tf,cfg),
+      detectSymTriangle(tf,cfg), detectReversal(tf,cfg)
+    );
+  }
+
+  // ---------- daily-index mapping & instance evaluation ----------
+  function findDailyIdxOnOrAfter(dailyDates, targetDate){
+    for (let i=0;i<dailyDates.length;i++){ if (dailyDates[i]>=targetDate) return i; }
+    return dailyDates.length-1;
+  }
+
+  function evaluateInstance(p, tf, daily, cfg){
+    p.formedDate = tf.dates[p.formedIdx];
+    if (p.breakoutIdx==null){
+      p.breakoutDate=null; p.breakoutPrice=null; p.retest=null; p.supportHeld=null; p.forward={}; p.outcome='In Progress';
+      return p;
+    }
+    p.breakoutDate = tf.dates[p.breakoutIdx];
+    p.breakoutPrice = tf.close[p.breakoutIdx];
+    const dIdx = findDailyIdxOnOrAfter(daily.dates, p.breakoutDate);
+    const dir = p.dir==='both' ? (p.breakoutPrice!=null?'bullish':'bearish') : p.dir;
+    let retest=null;
+    for (let k=dIdx+1;k<Math.min(daily.close.length, dIdx+1+cfg.retestWindow);k++){
+      if (Math.abs(daily.close[k]-p.breakoutPrice)/p.breakoutPrice<=0.015){ retest={idx:k,date:daily.dates[k],price:daily.close[k]}; break; }
+    }
+    let supportHeld=null;
+    if (retest){
+      let held=true;
+      for (let k=retest.idx+1;k<Math.min(daily.close.length, retest.idx+6);k++){
+        if (dir==='bullish' && daily.close[k]<p.breakoutPrice*0.985){held=false;break;}
+        if (dir==='bearish' && daily.close[k]>p.breakoutPrice*1.015){held=false;break;}
+      }
+      supportHeld=held;
+    }
+    const fwd={};
+    [10,20,30].forEach(n=>{ if (dIdx+n<daily.close.length) fwd['r'+n]=(daily.close[dIdx+n]-p.breakoutPrice)/p.breakoutPrice*100; });
+    let outcome='In Progress';
+    if (fwd.r30!=null){ const success = dir==='bullish'? fwd.r30>1 : fwd.r30<-1; outcome = success?'Successful':'Failed'; }
+    p.retest=retest; p.supportHeld=supportHeld; p.forward=fwd; p.outcome=outcome; p.dailyIdx=dIdx;
+    return p;
+  }
+
+  // volume ratio at breakout vs trailing average, within a given timeframe series
+  function volumeRatio(tf, idx, lookback=20){
+    if (idx==null || idx<lookback) return null;
+    let s=0; for(let k=idx-lookback;k<idx;k++) s+=tf.volume[k];
+    const avg = s/lookback;
+    if (!avg) return null;
+    return (tf.volume[idx]-avg)/avg*100;
+  }
+
+  function sma(arr,period,i){ if(i<period-1) return null; let s=0; for(let k=i-period+1;k<=i;k++) s+=arr[k]; return s/period; }
+
+  function overallTrend(closes, shortP, longP){
+    const i = closes.length-1;
+    const s = sma(closes,shortP,i), l = sma(closes,longP,i);
+    if (s==null||l==null) return {label:'Neutral',cls:'neutral'};
+    if (closes[i]>s && s>l) return {label:'Bullish',cls:'bullish'};
+    if (closes[i]<s && s<l) return {label:'Bearish',cls:'bearish'};
+    return {label:'Neutral / Mixed',cls:'neutral'};
+  }
+
+  // ---------- fundamentals scoring ----------
+  // thresholds are general-purpose heuristics, not sector-calibrated -- BFSI/capital-intensive
+  // sectors naturally run higher debt/equity and lower margins than the thresholds below assume.
+  function scoreBand(value, bands, higherIsBetter=true){
+    if (value==null || isNaN(value)) return null;
+    const b = higherIsBetter ? bands : bands.slice().reverse().map((x,i,a)=>a[a.length-1-i]);
+    for (const band of bands){
+      if (higherIsBetter ? value>=band.min : value<=band.max){
+        return band;
+      }
+    }
+    return bands[bands.length-1];
+  }
+  const ROE_BANDS = [ {min:0.20,label:'Excellent',cls:'excellent'}, {min:0.15,label:'Good',cls:'good'}, {min:0.10,label:'Average',cls:'avg'}, {min:-Infinity,label:'Weak',cls:'weak'} ];
+  const MARGIN_BANDS = [ {min:0.15,label:'Excellent',cls:'excellent'}, {min:0.08,label:'Good',cls:'good'}, {min:0.03,label:'Average',cls:'avg'}, {min:-Infinity,label:'Weak',cls:'weak'} ];
+  const GROWTH_BANDS = [ {min:0.15,label:'Excellent',cls:'excellent'}, {min:0.08,label:'Good',cls:'good'}, {min:0.00,label:'Average',cls:'avg'}, {min:-Infinity,label:'Weak',cls:'weak'} ];
+  const DE_BANDS_ASC = [ {max:0.3,label:'Excellent',cls:'excellent'}, {max:0.7,label:'Good',cls:'good'}, {max:1.5,label:'Average',cls:'avg'}, {max:Infinity,label:'Weak',cls:'weak'} ];
+  const CR_BANDS = [ {min:1.5,label:'Good',cls:'good'}, {min:1.0,label:'Average',cls:'avg'}, {min:-Infinity,label:'Weak',cls:'weak'} ];
+
+  function bandFor(value, bands, mode){
+    if (value==null || isNaN(value)) return null;
+    if (mode==='asc'){ for (const b of bands){ if (value<=b.max) return b; } return bands[bands.length-1]; }
+    for (const b of bands){ if (value>=b.min) return b; } return bands[bands.length-1];
+  }
+
+  function computeFundamentals(sym){
+    const f = (universe[sym] && universe[sym].fundamentals) || {};
+    const roe = bandFor(f.returnOnEquity, ROE_BANDS, 'desc');
+    const npm = bandFor(f.profitMargins, MARGIN_BANDS, 'desc');
+    const opm = bandFor(f.operatingMargins, MARGIN_BANDS, 'desc');
+    const rg = bandFor(f.revenueGrowth, GROWTH_BANDS, 'desc');
+    const eg = bandFor(f.earningsGrowth, GROWTH_BANDS, 'desc');
+    const de = bandFor(f.debtToEquity!=null? f.debtToEquity/100 : null, DE_BANDS_ASC, 'asc'); // yfinance debtToEquity is a %, e.g. 45 = 0.45
+    const cr = bandFor(f.currentRatio, CR_BANDS, 'desc');
+    const scoreMap = {Excellent:100,Good:75,Average:50,Weak:20};
+    const parts = [roe,npm,rg,eg,de,cr].filter(Boolean);
+    const overall = parts.length ? parts.reduce((a,b)=>a+scoreMap[b.label],0)/parts.length : null;
+    let overallLabel='Insufficient data', overallCls='nopattern';
+    if (overall!=null){
+      if (overall>=80){overallLabel='Excellent';overallCls='excellent';}
+      else if (overall>=60){overallLabel='Good';overallCls='good';}
+      else if (overall>=40){overallLabel='Average';overallCls='avg';}
+      else {overallLabel='Weak';overallCls='weak';}
+    }
+    return {f, roe, npm, opm, rg, eg, de, cr, overall, overallLabel, overallCls};
+  }
+
+  function renderFundamentals(sym){
+    const {f, roe, npm, opm, rg, eg, de, cr, overallLabel, overallCls} = computeFundamentals(sym);
+    const pct = v => v==null?'—':(v*100).toFixed(1)+'%';
+    const num = v => v==null?'—':v.toFixed(2);
+    const row = (label, valStr, band) => `
+      <div class="fund-stat">
+        <div class="lbl">${label}</div>
+        <div class="val">${valStr}</div>
+        <div class="rating">${band?`<span class="badge ${band.cls}">${band.label}</span>`:'—'}</div>
+      </div>`;
+    return `
+      <h2 style="margin-top:22px;">Fundamentals ${f.sector?`<span style="color:var(--ink-dim);font-weight:400;font-size:12px;">(${f.sector}${f.industry?' · '+f.industry:''})</span>`:''} &mdash; <span class="badge ${overallCls}">${overallLabel}</span></h2>
+      <div class="fund-grid">
+        ${row('ROE', pct(f.returnOnEquity), roe)}
+        ${row('Net Profit Margin', pct(f.profitMargins), npm)}
+        ${row('Operating Margin', pct(f.operatingMargins), opm)}
+        ${row('Revenue Growth (YoY)', pct(f.revenueGrowth), rg)}
+        ${row('Earnings Growth (YoY)', pct(f.earningsGrowth), eg)}
+        ${row('Debt / Equity', f.debtToEquity!=null?(f.debtToEquity/100).toFixed(2):'—', de)}
+        ${row('Current Ratio', num(f.currentRatio), cr)}
+        ${row('P/E (Trailing)', num(f.trailingPE), null)}
+        ${row('P/B', num(f.priceToBook), null)}
+        ${row('Dividend Yield', pct(f.dividendYield), null)}
+        ${row('ROA', pct(f.returnOnAssets), null)}
+        ${row('Beta', num(f.beta), null)}
+      </div>
+      <div style="color:var(--ink-dim);font-size:11px;line-height:1.6;">
+        Thresholds are general heuristics (not sector-calibrated) &mdash; BFSI and capital-intensive
+        sectors naturally run higher debt/equity and different margin profiles, so read the debt/equity
+        and margin ratings loosely for banks/NBFCs/infra names. P/E, P/B, dividend yield and beta are
+        shown for context and are not scored, since "good" depends on sector and growth stage.
+        Order book / unexecuted backlog (relevant for EPC, construction and capital-goods companies) isn't
+        available through free market data APIs &mdash; check the company's latest investor presentation
+        or exchange filing for that directly.
+      </div>
+    `;
+  }
+
+  // ---------- build everything after data load ----------
+  function buildUniverseAndPatterns(){
+    const threshold = parseFloat(document.getElementById('mcapFilter').value)||0;
+    universe = {};
+    Object.keys(rawData).forEach(sym=>{
+      const mc = rawData[sym].marketCapCr;
+      if (mc==null || mc>=threshold) universe[sym]=rawData[sym];
+    });
+    stockPatterns = {}; allPatternsFlat = [];
+    Object.keys(universe).forEach(sym=>{
+      const daily = universe[sym];
+      if (daily.close.length<80) return;
+      const weekly = resample(daily,'W'), monthly = resample(daily,'M');
+      const perTF = {};
+      [['D',daily],['W',weekly],['M',monthly]].forEach(([mode,tf])=>{
+        const cfg = TF_CONFIG[mode];
+        const insts = detectAll(tf,cfg).map(p=>evaluateInstance(p,tf,daily,cfg));
+        insts.forEach(p=>{ p.symbol=sym; p.timeframe=mode; });
+        perTF[mode]=insts;
+        allPatternsFlat.push(...insts);
+      });
+      stockPatterns[sym] = perTF;
+    });
+  }
+
+  // ---------- aggregation across universe ----------
+  function median(arr){ if(!arr.length) return null; const s=[...arr].sort((a,b)=>a-b); const m=Math.floor(s.length/2); return s.length%2?s[m]:(s[m-1]+s[m])/2; }
+
+  function aggregate(type, timeframe){
+    const insts = allPatternsFlat.filter(p=>p.type===type && p.timeframe===timeframe && p.breakoutIdx!=null);
+    const withRetestData = insts.filter(p=>p.retest!==undefined);
+    const retestCount = insts.filter(p=>p.retest).length;
+    const heldCount = insts.filter(p=>p.retest && p.supportHeld).length;
+    const resolved = insts.filter(p=>p.outcome==='Successful'||p.outcome==='Failed');
+    const successCount = insts.filter(p=>p.outcome==='Successful').length;
+    const returns = insts.map(p=>p.forward.r30).filter(v=>v!=null);
+    return {
+      occurrences: insts.length,
+      retestRate: insts.length? retestCount/insts.length*100 : null,
+      retestHoldRate: retestCount? heldCount/retestCount*100 : null,
+      successRate: resolved.length? successCount/resolved.length*100 : null,
+      medianReturn: median(returns),
+      n: insts.length
+    };
+  }
+
+  // ---------- status labels ----------
+  function statusLabel(tf, pattern){
+    if (!pattern) return {label:'No Pattern', cls:'nopattern'};
+    if (pattern.breakoutIdx!=null){
+      if (tf==='W') return {label:'Active', cls:'active'};
+      return {label:'Confirmed', cls:'confirmed'};
+    }
+    return {label:'Candidate', cls:'candidate'};
+  }
+
+  function mostRecentPattern(list){
+    if (!list || !list.length) return null;
+    return list.slice().sort((a,b)=>{
+      const ai = a.breakoutIdx!=null?a.breakoutIdx+100000:a.formedIdx;
+      const bi = b.breakoutIdx!=null?b.breakoutIdx+100000:b.formedIdx;
+      return bi-ai;
+    })[0];
+  }
+
+  function fmtPct(v){ return v==null?'—':(v>=0?'+':'')+v.toFixed(2)+'%'; }
+  function pctClass(v){ return v==null?'':(v>=0?'pos':'neg'); }
+  function fmtDate(d){ return d? d.toISOString().slice(0,10) : '—'; }
+
+  // ---------- render: stock detail ----------
+  function renderStockDetail(sym){
+    const wrap = document.getElementById('stockDetailWrap');
+    if (!sym || !universe[sym]){ wrap.innerHTML='<div class="empty">Select a stock above.</div>'; return; }
+    const daily = universe[sym];
+    const perTF = stockPatterns[sym] || {D:[],W:[],M:[]};
+    const last = daily.close[daily.close.length-1];
+    const dailyTrend = overallTrend(daily.close,50,200);
+    const weekly = resample(daily,'W'), monthly = resample(daily,'M');
+    const weeklyTrend = overallTrend(weekly.close,10,40);
+
+    const curD = mostRecentPattern(perTF.D);
+    const curW = mostRecentPattern(perTF.W);
+    const curM = mostRecentPattern(perTF.M);
+
+    const stD = statusLabel('D',curD), stW = statusLabel('W',curW), stM = statusLabel('M',curM);
+
+    let monthlyTrendLabel;
+    if (curM && curM.breakoutIdx==null) monthlyTrendLabel = {label:'Long-term Accumulation', cls:'candidate'};
+    else monthlyTrendLabel = overallTrend(monthly.close,6,24).label==='Bullish' ? {label:'Long-term Uptrend',cls:'bullish'}
+        : overallTrend(monthly.close,6,24).label==='Bearish' ? {label:'Long-term Downtrend',cls:'bearish'}
+        : {label:'Long-term Sideways',cls:'neutral'};
+
+    const dailyRetestHtml = curD && curD.retest
+      ? `<span class="badge yes">YES</span><div class="kv"><span class="k"></span><span class="v" style="font-weight:400;">${fmtDate(curD.retest.date)} @ ₹${curD.retest.price.toFixed(2)}</span></div>`
+      : `<span class="badge no">${curD && curD.breakoutIdx!=null ? 'NO' : '—'}</span>`;
+
+    const volRatio = curD ? volumeRatio(daily, curD.breakoutIdx, 20) : null;
+    const levels = nearestLevels(daily, 120);
+    const keyLevelRow = curD && curD.level
+      ? `<div class="kv"><span class="k">${curD.levelType==='support'?'Support being tested':'Resistance being tested'}</span><span class="v">₹${curD.level.toFixed(2)} (${(((last-curD.level)/curD.level)*100).toFixed(1)}% away)</span></div>`
+      : '';
+
+    wrap.innerHTML = `
+      <div class="stock-head">
+        <h3>${sym}</h3>
+        <span class="sub">₹${last.toFixed(2)} &middot; mcap ₹${daily.marketCapCr?daily.marketCapCr.toLocaleString():'—'} Cr &middot; ${fmtDate(daily.dates[daily.dates.length-1])}</span>
+      </div>
+      <div id="tvChartContainer" style="height:500px;margin-bottom:18px;border:1px solid var(--line);border-radius:8px;overflow:hidden;"></div>
+      <div class="tf-grid">
+        <div class="tf-card">
+          <h4>Daily</h4>
+          <div class="kv"><span class="k">Pattern</span><span class="v">${curD?curD.type:'—'}</span></div>
+          <div class="kv"><span class="k">Status</span><span class="v"><span class="badge ${stD.cls}">${stD.label}</span></span></div>
+          ${curD && curD.breakoutIdx!=null ? `
+          <div class="kv"><span class="k">Breakout</span><span class="v">${fmtDate(curD.breakoutDate)} @ ₹${curD.breakoutPrice.toFixed(2)}</span></div>
+          <div class="kv"><span class="k">Current Price</span><span class="v">₹${last.toFixed(2)}</span></div>
+          <div class="kv"><span class="k">Retest</span><span class="v">${dailyRetestHtml}</span></div>
+          <div class="kv"><span class="k">Support Held</span><span class="v">${curD.retest? `<span class="badge ${curD.supportHeld?'yes':'no'}">${curD.supportHeld?'YES':'NO'}</span>` : '—'}</span></div>
+          <div class="kv"><span class="k">Volume</span><span class="v">${volRatio==null?'—':(volRatio>=0?'+':'')+volRatio.toFixed(0)+'% vs average'}</span></div>
+          <div class="kv"><span class="k">Current Outcome</span><span class="v"><span class="badge ${curD.outcome==='Successful'?'successful':curD.outcome==='Failed'?'failed':'progress'}">${curD.outcome}</span></span></div>
+          ${keyLevelRow}
+          ` : `<div class="kv"><span class="k">Note</span><span class="v" style="font-weight:400;">${curD?'Pattern forming, no breakout yet':'No qualifying pattern detected recently'}</span></div>`}
+          <div class="kv" style="margin-top:6px;border-top:1px dashed var(--line);padding-top:6px;"><span class="k">Nearest Support</span><span class="v">${levels.support?`₹${levels.support.toFixed(2)} (${(((last-levels.support)/levels.support)*100).toFixed(1)}% below)`:'—'}</span></div>
+          <div class="kv"><span class="k">Nearest Resistance</span><span class="v">${levels.resistance?`₹${levels.resistance.toFixed(2)} (${(((levels.resistance-last)/last)*100).toFixed(1)}% above)`:'—'}</span></div>
+        </div>
+        <div class="tf-card">
+          <h4>Weekly</h4>
+          <div class="kv"><span class="k">Trend</span><span class="v"><span class="badge ${weeklyTrend.cls}">${weeklyTrend.label}</span></span></div>
+          <div class="kv"><span class="k">Pattern</span><span class="v">${curW?curW.type:'—'}</span></div>
+          <div class="kv"><span class="k">Breakout</span><span class="v">${curW && curW.breakoutIdx!=null ? fmtDate(curW.breakoutDate) : '—'}</span></div>
+          <div class="kv"><span class="k">Status</span><span class="v"><span class="badge ${stW.cls}">${stW.label}</span></span></div>
+        </div>
+        <div class="tf-card">
+          <h4>Monthly</h4>
+          <div class="kv"><span class="k">Trend</span><span class="v"><span class="badge ${monthlyTrendLabel.cls}">${monthlyTrendLabel.label}</span></span></div>
+          <div class="kv"><span class="k">Pattern</span><span class="v">${curM?curM.type:'—'}</span></div>
+          <div class="kv"><span class="k">Status</span><span class="v"><span class="badge ${stM.cls}">${stM.label}</span></span></div>
+        </div>
+      </div>
+      <div id="fundamentalsWrap"></div>
+      <div id="evidenceWrap"></div>
+      <div id="stockAllPatternsWrap" style="margin-top:16px;"></div>
+    `;
+
+    document.getElementById('fundamentalsWrap').innerHTML = renderFundamentals(sym);
+
+    renderEvidenceAndHistory(sym, curD, perTF);
+    renderAllPatternsTable(perTF);
+    renderTVChart(sym);
+  }
+
+  // ---------- TradingView chart embed (works only when opened as a local file/server in a
+  // real browser with internet access -- not inside Claude's own hosted preview) ----------
+  function ensureTVScript(cb){
+    if (window.TradingView){ cb(); return; }
+    let s = document.getElementById('tv-script');
+    if (s){ s.addEventListener('load', cb); return; }
+    s = document.createElement('script');
+    s.id = 'tv-script'; s.src = 'https://s3.tradingview.com/tv.js';
+    s.onload = cb;
+    s.onerror = ()=>{ const c=document.getElementById('tvChartContainer'); if(c) c.innerHTML='<div class="empty">Chart widget could not load (no internet, or opened inside a preview without external access). Open this file directly in your own browser to see live charts.</div>'; };
+    document.body.appendChild(s);
+  }
+  function renderTVChart(sym){
+    const container = document.getElementById('tvChartContainer');
+    if (!container) return;
+    container.innerHTML = '<div class="empty">Loading chart…</div>';
+    const innerId = 'tvw_' + sym.replace(/[^A-Za-z0-9]/g,'');
+    ensureTVScript(()=>{
+      container.innerHTML = '';
+      const div = document.createElement('div'); div.id = innerId; div.style.height='500px';
+      container.appendChild(div);
+      new TradingView.widget({
+        autosize: true,
+        symbol: "NSE:" + sym,
+        interval: "D",
+        timezone: "Asia/Kolkata",
+        theme: "dark",
+        style: "1",
+        locale: "in",
+        toolbar_bg: "#161d28",
+        enable_publishing: false,
+        withdateranges: true,
+        hide_side_toolbar: false,
+        studies: ["MASimple@tv-basicstudies","Volume@tv-basicstudies","RSI@tv-basicstudies"],
+        container_id: innerId
+      });
+    });
+  }
+
+  function renderEvidenceAndHistory(sym, curD, perTF){
+    const wrap = document.getElementById('evidenceWrap');
+    if (!curD){ wrap.innerHTML=''; return; }
+    const agg = aggregate(curD.type, 'D');
+    const stockOwnInsts = (perTF.D||[]).filter(p=>p.type===curD.type && p.breakoutIdx!=null)
+      .sort((a,b)=>b.breakoutIdx-a.breakoutIdx).slice(0,5);
+    wrap.innerHTML = `
+      <h2 style="margin-top:22px;">Historical evidence &mdash; ${curD.type} (Daily, across loaded universe)</h2>
+      <div class="evidence-grid">
+        <div class="ev-stat"><div class="lbl">Occurrences</div><div class="val">${agg.occurrences.toLocaleString()}</div></div>
+        <div class="ev-stat"><div class="lbl">Retest Rate</div><div class="val">${agg.retestRate==null?'—':agg.retestRate.toFixed(1)+'%'}</div></div>
+        <div class="ev-stat"><div class="lbl">Retest Support-Hold Rate</div><div class="val">${agg.retestHoldRate==null?'—':agg.retestHoldRate.toFixed(1)+'%'}</div></div>
+        <div class="ev-stat"><div class="lbl">Target Success Rate</div><div class="val">${agg.successRate==null?'—':agg.successRate.toFixed(1)+'%'}</div></div>
+        <div class="ev-stat"><div class="lbl">Median Return (30d)</div><div class="val ${pctClass(agg.medianReturn)}">${fmtPct(agg.medianReturn)}</div></div>
+      </div>
+      <div style="font-size:11px;color:var(--ink-dim);margin-bottom:14px;">n = ${agg.n} confirmed breakout instance${agg.n===1?'':'s'} of this pattern on Daily across your currently loaded &amp; mcap-filtered universe.</div>
+      <h2>${sym}'s own last ${stockOwnInsts.length || 0} ${curD.type} incidents (Daily)</h2>
+      ${stockOwnInsts.length ? `<table>
+        <thead><tr><th>Breakout Date</th><th>Price</th><th>Retest</th><th>Support Held</th><th>10d</th><th>20d</th><th>30d</th><th>Outcome</th></tr></thead>
+        <tbody>${stockOwnInsts.map(p=>`
+          <tr>
+            <td>${fmtDate(p.breakoutDate)}</td>
+            <td>₹${p.breakoutPrice.toFixed(2)}</td>
+            <td>${p.retest?'Yes':'No'}</td>
+            <td>${p.retest? (p.supportHeld?'Yes':'No') : '—'}</td>
+            <td class="${pctClass(p.forward.r10)}">${fmtPct(p.forward.r10)}</td>
+            <td class="${pctClass(p.forward.r20)}">${fmtPct(p.forward.r20)}</td>
+            <td class="${pctClass(p.forward.r30)}">${fmtPct(p.forward.r30)}</td>
+            <td>${p.outcome}</td>
+          </tr>`).join('')}</tbody>
+      </table>` : `<div class="empty">No prior ${curD.type} breakout found for ${sym} in the loaded history yet &mdash; this may be its first.</div>`}
+    `;
+  }
+
+  function renderAllPatternsTable(perTF){
+    const wrap = document.getElementById('stockAllPatternsWrap');
+    const all = [...(perTF.D||[]).map(p=>({...p})), ...(perTF.W||[]).map(p=>({...p})), ...(perTF.M||[]).map(p=>({...p}))];
+    if (!all.length){ wrap.innerHTML=''; return; }
+    all.sort((a,b)=>{
+      const ai=a.breakoutIdx!=null?1:0, bi=b.breakoutIdx!=null?1:0;
+      return bi-ai;
+    });
+    wrap.innerHTML = `
+      <h2>All detected patterns for this stock</h2>
+      <table>
+        <thead><tr><th>Timeframe</th><th>Pattern</th><th>Status</th><th>Breakout</th><th>Outcome</th></tr></thead>
+        <tbody>${all.map(p=>{
+          const st = statusLabel(p.timeframe, p);
+          return `<tr>
+            <td>${p.timeframe==='D'?'Daily':p.timeframe==='W'?'Weekly':'Monthly'}</td>
+            <td>${p.type}</td>
+            <td><span class="badge ${st.cls}">${st.label}</span></td>
+            <td>${p.breakoutIdx!=null?fmtDate(p.breakoutDate):'—'}</td>
+            <td>${p.outcome}</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>
+    `;
+  }
+
+  // ---------- render: pattern browse ----------
+  function renderPatternTable(){
+    const type = document.getElementById('patternSelect').value;
+    const tf = document.getElementById('timeframeSelect').value;
+    const statusF = document.getElementById('statusFilterSel').value;
+    let insts = allPatternsFlat.filter(p=>p.type===type && p.timeframe===tf);
+    if (statusF==='confirmed') insts = insts.filter(p=>p.breakoutIdx!=null);
+    if (statusF==='candidate') insts = insts.filter(p=>p.breakoutIdx==null);
+    insts.sort((a,b)=>{
+      const ai=a.breakoutIdx!=null?a.breakoutIdx+100000:a.formedIdx;
+      const bi=b.breakoutIdx!=null?b.breakoutIdx+100000:b.formedIdx;
+      return bi-ai;
+    });
+    const wrap = document.getElementById('patternTableWrap');
+    if (!insts.length){ wrap.innerHTML = `<div class="empty">No ${type} instances on ${tf==='D'?'Daily':tf==='W'?'Weekly':'Monthly'} charts in the loaded universe.</div>`; return; }
+    wrap.innerHTML = `<table>
+      <thead><tr><th>Stock</th><th>Mcap (Cr)</th><th>Status</th><th>Breakout</th><th>10d</th><th>20d</th><th>30d</th><th>Outcome</th></tr></thead>
+      <tbody>${insts.map(p=>{
+        const st = statusLabel(p.timeframe,p);
+        const mc = universe[p.symbol] && universe[p.symbol].marketCapCr;
+        return `<tr class="clickable" data-sym="${p.symbol}">
+          <td>${p.symbol}</td>
+          <td>${mc?mc.toLocaleString():'—'}</td>
+          <td><span class="badge ${st.cls}">${st.label}</span></td>
+          <td>${p.breakoutIdx!=null?fmtDate(p.breakoutDate):'—'}</td>
+          <td class="${pctClass(p.forward.r10)}">${fmtPct(p.forward.r10)}</td>
+          <td class="${pctClass(p.forward.r20)}">${fmtPct(p.forward.r20)}</td>
+          <td class="${pctClass(p.forward.r30)}">${fmtPct(p.forward.r30)}</td>
+          <td>${p.outcome}</td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>`;
+    wrap.querySelectorAll('tr.clickable').forEach(tr=>{
+      tr.addEventListener('click', ()=>{
+        document.getElementById('tabByStock').click();
+        document.getElementById('stockSelect').value = tr.dataset.sym;
+        renderStockDetail(tr.dataset.sym);
+      });
+    });
+  }
+
+  // ---------- selectors ----------
+  function populateSelectors(){
+    const stockSel = document.getElementById('stockSelect');
+    stockSel.innerHTML='';
+    Object.keys(universe).sort().forEach(sym=>{
+      const o=document.createElement('option'); o.value=sym;
+      o.textContent = `${sym} (₹${universe[sym].marketCapCr?universe[sym].marketCapCr.toLocaleString():'?'} Cr)`;
+      stockSel.appendChild(o);
+    });
+    document.getElementById('universeCount').textContent = `${Object.keys(universe).length} stocks in universe`;
+    stockSel.onchange = ()=>renderStockDetail(stockSel.value);
+    if (Object.keys(universe).length) renderStockDetail(stockSel.value);
+
+    const patSel = document.getElementById('patternSelect');
+    patSel.innerHTML='';
+    PATTERN_TYPES.forEach(t=>{ const o=document.createElement('option'); o.value=t; o.textContent=t; patSel.appendChild(o); });
+    patSel.onchange = renderPatternTable;
+    document.getElementById('timeframeSelect').onchange = renderPatternTable;
+    document.getElementById('statusFilterSel').onchange = renderPatternTable;
+    renderPatternTable();
+  }
+
+  // ---------- tabs ----------
+  document.getElementById('tabByStock').addEventListener('click', ()=>{
+    document.getElementById('tabByStock').classList.add('active');
+    document.getElementById('tabByPattern').classList.remove('active');
+    document.getElementById('tabScreeners').classList.remove('active');
+    document.getElementById('viewByStock').style.display='block';
+    document.getElementById('viewByPattern').style.display='none';
+    document.getElementById('viewScreeners').style.display='none';
+  });
+  document.getElementById('tabByPattern').addEventListener('click', ()=>{
+    document.getElementById('tabByPattern').classList.add('active');
+    document.getElementById('tabByStock').classList.remove('active');
+    document.getElementById('tabScreeners').classList.remove('active');
+    document.getElementById('viewByPattern').style.display='block';
+    document.getElementById('viewByStock').style.display='none';
+    document.getElementById('viewScreeners').style.display='none';
+  });
+  document.getElementById('tabScreeners').addEventListener('click', ()=>{
+    document.getElementById('tabScreeners').classList.add('active');
+    document.getElementById('tabByStock').classList.remove('active');
+    document.getElementById('tabByPattern').classList.remove('active');
+    document.getElementById('viewScreeners').style.display='block';
+    document.getElementById('viewByStock').style.display='none';
+    document.getElementById('viewByPattern').style.display='none';
+    populateScreenerGrid();
+  });
+
+  // ---------- live screener grid (Chartink -- link tiles, since they block iframe embedding) ----------
+  const SCREENERS = [
+    {name:"Head & Shoulders", url:"https://chartink.com/screener/head-and-shoulders-buy", desc:"Bearish reversal breakouts below the neckline."},
+    {name:"Inverse Head & Shoulders", url:"https://chartink.com/screener/inverted-head-and-shoulders-1", desc:"Bullish reversal breakouts above the neckline."},
+    {name:"Rectangle / Triangular Breakout", url:"https://chartink.com/screener/triangular-breakout", desc:"Stocks breaking out of a sideways range."},
+    {name:"Ascending Triangle", url:"https://chartink.com/screener/ascending-triangle-screener", desc:"Flat resistance, rising support -- bullish continuation setup."},
+    {name:"Rounding Bottom Breakout", url:"https://chartink.com/screener/rounding-bottom-breakout", desc:"Stocks emerging from a rounded base."},
+    {name:"Cup & Handle Breakout", url:"https://chartink.com/screener/cup-handle-breakout-pattern", desc:"Classic bullish continuation breakout."},
+    {name:"Double Bottom Breakout", url:"https://chartink.com/screener/double-bottom-breakout", desc:"Bullish reversal off a retested support level."}
+  ];
+  let screenerGridBuilt = false;
+  function populateScreenerGrid(){
+    if (screenerGridBuilt) return;
+    const grid = document.getElementById('screenerGrid');
+    grid.innerHTML = SCREENERS.map(s=>`
+      <a class="screener-tile" href="${s.url}" target="_blank" rel="noopener">
+        <h4>${s.name}</h4>
+        <p>${s.desc}</p>
+        <span class="go">Open live screener ↗</span>
+      </a>
+    `).join('');
+    screenerGridBuilt = true;
+  }
+
+  // ---------- standalone quick chart (no data file required) ----------
+  document.getElementById('quickChartBtn').addEventListener('click', ()=>{
+    const sym = document.getElementById('quickChartSymbol').value.trim().toUpperCase();
+    if (!sym) return;
+    const container = document.getElementById('quickChartContainer');
+    container.style.display='block';
+    container.innerHTML = '<div class="empty">Loading chart…</div>';
+    const innerId = 'tvq_' + sym.replace(/[^A-Za-z0-9]/g,'');
+    ensureTVScript(()=>{
+      container.innerHTML='';
+      const div = document.createElement('div'); div.id=innerId; div.style.height='500px';
+      container.appendChild(div);
+      new TradingView.widget({
+        autosize:true, symbol:"NSE:"+sym, interval:"D", timezone:"Asia/Kolkata",
+        theme:"dark", style:"1", locale:"in", toolbar_bg:"#161d28",
+        enable_publishing:false, withdateranges:true, hide_side_toolbar:false,
+        studies:["MASimple@tv-basicstudies","Volume@tv-basicstudies","RSI@tv-basicstudies"],
+        container_id: innerId
+      });
+    });
+  });
+  document.getElementById('quickChartSymbol').addEventListener('keydown', (e)=>{
+    if (e.key==='Enter') document.getElementById('quickChartBtn').click();
+  });
+
+  function processLoadedJSON(jsonText, sourceLabel){
+    try{
+      const parsed = JSON.parse(jsonText);
+      const src = parsed.data || parsed;
+      generatedStamp = parsed.generated || '';
+      rawData = {};
+      Object.keys(src).forEach(sym=>{
+        const d = src[sym];
+        rawData[sym] = {
+          dates: d.dates.map(s=>new Date(s)), open:d.open, high:d.high, low:d.low, close:d.close,
+          volume: d.volume || d.close.map(()=>0), marketCapCr: d.marketCapCr, fundamentals: d.fundamentals || {}
+        };
+      });
+      buildUniverseAndPatterns();
+      document.getElementById('fileStatus').textContent = `Loaded ${Object.keys(rawData).length} symbols${sourceLabel?` (${sourceLabel})`:''}.`;
+      document.getElementById('dataStamp').textContent = generatedStamp ? `Data fetched: ${generatedStamp}` : '';
+      document.getElementById('progressWrap').style.display='none';
+      document.getElementById('mainContent').style.display='block';
+      document.getElementById('footNote').style.display='block';
+      populateSelectors();
+      return true;
+    }catch(err){
+      document.getElementById('fileStatus').textContent = 'Could not parse file: '+err.message;
+      document.getElementById('progressWrap').style.display='none';
+      return false;
+    }
+  }
+
+  // Try to auto-load research_data.json sitting next to this HTML file (works when opened
+  // via a local server -- see run_daily.py -- or opened directly in some browsers; if this
+  // page is being viewed inside a hosted preview rather than opened as a local file, this
+  // will simply fail silently and the manual "Load data file" button below still works).
+  window.addEventListener('DOMContentLoaded', ()=>{
+    fetch('research_data.json').then(r=> r.ok ? r.text() : Promise.reject())
+      .then(text=> processLoadedJSON(text, 'auto-loaded'))
+      .catch(()=>{ /* no local server / file not found -- fall back to manual load, no error shown */ });
+  });
+  document.getElementById('refreshBtn').addEventListener('click', async ()=>{
+    const btn = document.getElementById('refreshBtn');
+    const status = document.getElementById('fileStatus');
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '⏳ Refreshing... (can take a few minutes, see the terminal for progress)';
+    status.textContent = '';
+    try{
+      const resp = await fetch('/refresh', {method:'POST'});
+      if (!resp.ok) throw new Error('refresh endpoint returned ' + resp.status);
+      const result = await resp.json();
+      if (!result.ok){
+        status.textContent = 'Fetch script reported an error -- check the terminal window running run_daily.py for details.';
+        btn.textContent = originalText;
+        btn.disabled = false;
+        return;
+      }
+      btn.textContent = 'Loading refreshed data...';
+      const dataResp = await fetch('research_data.json?_=' + Date.now()); // cache-bust
+      const text = await dataResp.text();
+      processLoadedJSON(text, 'refreshed just now');
+    }catch(err){
+      status.textContent = 'Could not reach the local refresh server -- this button only works when the page was opened via run_daily.py, not when opened as a plain file or viewed in a hosted preview.';
+    }
+    btn.textContent = originalText;
+    btn.disabled = false;
+  });
+
+  document.getElementById('loadFileBtn').addEventListener('click', ()=>document.getElementById('fileInput').click());
+  document.getElementById('fileInput').addEventListener('change', (e)=>{
+    const file = e.target.files[0]; if (!file) return;
+    const reader = new FileReader();
+    document.getElementById('progressWrap').style.display='block';
+    document.getElementById('progressLabel').textContent = 'Parsing file...';
+    reader.onload = (ev)=> processLoadedJSON(ev.target.result, 'manual upload');
+    reader.readAsText(file);
+  });
+
+  document.getElementById('mcapFilter').addEventListener('change', ()=>{
+    if (Object.keys(rawData).length){
+      buildUniverseAndPatterns();
+      populateSelectors();
+    }
+  });
+})();
+</script>
+</body>
+</html>

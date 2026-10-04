@@ -739,7 +739,7 @@
     return (closes[i]-closes[i-lookbackDays])/closes[i-lookbackDays]*100;
   }
 
-  function buildUniverseAndPatterns(){
+  async function buildUniverseAndPatterns(){
     const threshold = parseFloat(document.getElementById('mcapFilter').value)||0;
     universe = {};
     Object.keys(rawData).forEach(sym=>{
@@ -761,37 +761,56 @@
       marketContext.vix = {value:v, label: v<13?'Low / Complacent': v<=20?'Normal':'Elevated / Fear', cls: v<13?'neutral': v<=20?'good':'bearish'};
     }
 
-    stockPatterns = {}; allPatternsFlat = [];
-    Object.keys(universe).forEach(sym=>{
-      const daily = universe[sym];
-      if (daily.close.length<80) return;
+    stockPatterns = {}; allPatternsFlat = []; aggregateCache = {};
+    const symbols = Object.keys(universe);
+    const BATCH_SIZE = 15; // process this many stocks, then yield to the browser so the page stays responsive
 
-      // relative strength vs Nifty
-      const r1 = stockReturn(daily.close, daily.dates, 21), r3 = stockReturn(daily.close, daily.dates, 63);
-      daily.rs1m = (r1!=null && marketContext.niftyReturn1m!=null) ? r1-marketContext.niftyReturn1m : null;
-      daily.rs3m = (r3!=null && marketContext.niftyReturn3m!=null) ? r3-marketContext.niftyReturn3m : null;
-      // liquidity: average daily traded value over the last 20 sessions, in Rs crore
-      const n = daily.close.length, lb = Math.min(20, n);
-      let turnoverSum=0; for (let k=n-lb;k<n;k++) turnoverSum += daily.close[k]*(daily.volume[k]||0);
-      daily.avgDailyTurnoverCr = (turnoverSum/lb)/1e7;
+    const progressWrap = document.getElementById('progressWrap');
+    const progressFill = document.getElementById('progressFill');
+    const progressLabel = document.getElementById('progressLabel');
+    progressWrap.style.display = 'block';
 
-      const weekly = resample(daily,'W'), monthly = resample(daily,'M');
-      const perTF = {};
-      [['D',daily],['W',weekly],['M',monthly]].forEach(([mode,tf])=>{
-        const cfg = TF_CONFIG[mode];
-        const insts = detectAll(tf,cfg).map(p=>evaluateInstance(p,tf,daily,cfg));
-        insts.forEach(p=>{ p.symbol=sym; p.timeframe=mode; });
-        perTF[mode]=insts;
-        allPatternsFlat.push(...insts);
-      });
-      stockPatterns[sym] = perTF;
-    });
+    for (let bStart=0; bStart<symbols.length; bStart+=BATCH_SIZE){
+      const batch = symbols.slice(bStart, bStart+BATCH_SIZE);
+      for (const sym of batch){
+        const daily = universe[sym];
+        if (daily.close.length<80) continue;
+
+        // relative strength vs Nifty
+        const r1 = stockReturn(daily.close, daily.dates, 21), r3 = stockReturn(daily.close, daily.dates, 63);
+        daily.rs1m = (r1!=null && marketContext.niftyReturn1m!=null) ? r1-marketContext.niftyReturn1m : null;
+        daily.rs3m = (r3!=null && marketContext.niftyReturn3m!=null) ? r3-marketContext.niftyReturn3m : null;
+        // liquidity: average daily traded value over the last 20 sessions, in Rs crore
+        const n = daily.close.length, lb = Math.min(20, n);
+        let turnoverSum=0; for (let k=n-lb;k<n;k++) turnoverSum += daily.close[k]*(daily.volume[k]||0);
+        daily.avgDailyTurnoverCr = (turnoverSum/lb)/1e7;
+
+        const weekly = resample(daily,'W'), monthly = resample(daily,'M');
+        const perTF = {};
+        [['D',daily],['W',weekly],['M',monthly]].forEach(([mode,tf])=>{
+          const cfg = TF_CONFIG[mode];
+          const insts = detectAll(tf,cfg).map(p=>evaluateInstance(p,tf,daily,cfg));
+          insts.forEach(p=>{ p.symbol=sym; p.timeframe=mode; });
+          perTF[mode]=insts;
+          allPatternsFlat.push(...insts);
+        });
+        stockPatterns[sym] = perTF;
+      }
+      const done = Math.min(bStart+BATCH_SIZE, symbols.length);
+      progressLabel.textContent = `Scanning patterns... ${done}/${symbols.length} stocks`;
+      progressFill.style.width = symbols.length ? Math.round(done/symbols.length*100)+'%' : '0%';
+      await new Promise(r=>setTimeout(r, 0)); // yield to the browser between batches
+    }
+    progressWrap.style.display = 'none';
   }
 
   // ---------- aggregation across universe ----------
   function median(arr){ if(!arr.length) return null; const s=[...arr].sort((a,b)=>a-b); const m=Math.floor(s.length/2); return s.length%2?s[m]:(s[m-1]+s[m])/2; }
 
+  let aggregateCache = {};
   function aggregate(type, timeframe){
+    const cacheKey = type+'|'+timeframe;
+    if (aggregateCache[cacheKey]) return aggregateCache[cacheKey];
     const insts = allPatternsFlat.filter(p=>p.type===type && p.timeframe===timeframe && p.breakoutIdx!=null);
     const withRetestData = insts.filter(p=>p.retest!==undefined);
     const retestCount = insts.filter(p=>p.retest).length;
@@ -799,7 +818,7 @@
     const resolved = insts.filter(p=>p.outcome==='Successful'||p.outcome==='Failed');
     const successCount = insts.filter(p=>p.outcome==='Successful').length;
     const returns = insts.map(p=>p.forward.r30).filter(v=>v!=null);
-    return {
+    const result = {
       occurrences: insts.length,
       retestRate: insts.length? retestCount/insts.length*100 : null,
       retestHoldRate: retestCount? heldCount/retestCount*100 : null,
@@ -807,6 +826,8 @@
       medianReturn: median(returns),
       n: insts.length
     };
+    aggregateCache[cacheKey] = result;
+    return result;
   }
 
   // ---------- status labels ----------
@@ -1240,7 +1261,7 @@
     if (e.key==='Enter') document.getElementById('quickChartBtn').click();
   });
 
-  function processLoadedJSON(jsonText, sourceLabel){
+  async function processLoadedJSON(jsonText, sourceLabel){
     try{
       const parsed = JSON.parse(jsonText);
       const src = parsed.data || parsed;
@@ -1253,12 +1274,11 @@
           volume: d.volume || d.close.map(()=>0), marketCapCr: d.marketCapCr, fundamentals: d.fundamentals || {}
         };
       });
-      buildUniverseAndPatterns();
+      document.getElementById('mainContent').style.display='block'; // show the shell immediately, before the (now non-blocking) scan runs
+      await buildUniverseAndPatterns();
       const stockCount = Object.keys(rawData).filter(s=>!s.startsWith('_')).length;
       document.getElementById('fileStatus').textContent = `Loaded ${stockCount} symbols${sourceLabel?` (${sourceLabel})`:''}.`;
       document.getElementById('dataStamp').textContent = generatedStamp ? `Data fetched: ${generatedStamp}` : '';
-      document.getElementById('progressWrap').style.display='none';
-      document.getElementById('mainContent').style.display='block';
       document.getElementById('footNote').style.display='block';
       renderMarketContext();
       populateSelectors();
@@ -1300,7 +1320,7 @@
       btn.textContent = 'Loading refreshed data...';
       const dataResp = await fetch('research_data.json?_=' + Date.now()); // cache-bust
       const text = await dataResp.text();
-      processLoadedJSON(text, 'refreshed just now');
+      await processLoadedJSON(text, 'refreshed just now');
     }catch(err){
       status.textContent = 'Could not reach the local refresh server -- this button only works when the page was opened via run_daily.py, not when opened as a plain file or viewed in a hosted preview.';
     }
@@ -1314,13 +1334,13 @@
     const reader = new FileReader();
     document.getElementById('progressWrap').style.display='block';
     document.getElementById('progressLabel').textContent = 'Parsing file...';
-    reader.onload = (ev)=> processLoadedJSON(ev.target.result, 'manual upload');
+    reader.onload = async (ev)=> await processLoadedJSON(ev.target.result, 'manual upload');
     reader.readAsText(file);
   });
 
-  document.getElementById('mcapFilter').addEventListener('change', ()=>{
+  document.getElementById('mcapFilter').addEventListener('change', async ()=>{
     if (Object.keys(rawData).length){
-      buildUniverseAndPatterns();
+      await buildUniverseAndPatterns();
       renderMarketContext();
       populateSelectors();
       renderTopPicks();

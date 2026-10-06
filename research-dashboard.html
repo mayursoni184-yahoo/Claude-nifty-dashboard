@@ -221,13 +221,463 @@
     "Volume Breakout":"both","Accumulation":"bullish","Distribution":"bearish"
   };
 
-  const TF_CONFIG = {
-    D: {pivotLB:4, minSepDouble:8, cupMin:15, cupMax:200, handleMax:40, retestWindow:15, reversalLookback:60, triMin:15, triMax:150, pvLookback:20, volSpikeLookback:20, rangeLookback:20, atrPeriod:14},
-    W: {pivotLB:3, minSepDouble:4, cupMin:8,  cupMax:60,  handleMax:15, retestWindow:40, reversalLookback:26, triMin:8,  triMax:52,  pvLookback:10, volSpikeLookback:10, rangeLookback:10, atrPeriod:14},
-    M: {pivotLB:2, minSepDouble:3, cupMin:4,  cupMax:24,  handleMax:6,  retestWindow:90, reversalLookback:12, triMin:4,  triMax:24,  pvLookback:6,  volSpikeLookback:6,  rangeLookback:6,  atrPeriod:14}
-  };
+  // ============================================================
+  // Heavy pattern-detection work runs in a Web Worker (separate thread) so the
+  // main UI thread -- clicks, scrolling, tab switching -- stays responsive even
+  // while scanning a large universe. The worker source is built from a string
+  // (via a Blob URL) so everything still lives in this one HTML file.
+  // ============================================================
+  const WORKER_SOURCE = `
+    const TF_CONFIG = {
+      D: {pivotLB:4, minSepDouble:8, cupMin:15, cupMax:200, handleMax:40, retestWindow:15, reversalLookback:60, triMin:15, triMax:150, pvLookback:20, volSpikeLookback:20, rangeLookback:20, atrPeriod:14},
+      W: {pivotLB:3, minSepDouble:4, cupMin:8,  cupMax:60,  handleMax:15, retestWindow:40, reversalLookback:26, triMin:8,  triMax:52,  pvLookback:10, volSpikeLookback:10, rangeLookback:10, atrPeriod:14},
+      M: {pivotLB:2, minSepDouble:3, cupMin:4,  cupMax:24,  handleMax:6,  retestWindow:90, reversalLookback:12, triMin:4,  triMax:24,  pvLookback:6,  volSpikeLookback:6,  rangeLookback:6,  atrPeriod:14}
+    };
+    const DIR_W = {
+      "Head & Shoulders":"bearish","Inverse H&S":"bullish","Double Top":"bearish",
+      "Double Bottom":"bullish","Rectangle Breakout":"both","Cup & Handle":"bullish",
+      "Symmetrical Triangle":"both","Reversal (Bottom)":"bullish","Reversal (Top)":"bearish",
+      "Volume Breakout":"both","Accumulation":"bullish","Distribution":"bearish"
+    };
 
-  // ---------- resampling ----------
+    function resample(d, mode){
+      if (mode==='D') return d;
+      const buckets = {};
+      const order = [];
+      d.dates.forEach((dt,i)=>{
+        let key;
+        if (mode==='W'){
+          const tmp = new Date(dt); const day = (tmp.getDay()+6)%7;
+          tmp.setDate(tmp.getDate()-day);
+          key = tmp.toISOString().slice(0,10);
+        } else {
+          key = dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0');
+        }
+        if (!buckets[key]){ buckets[key] = {open:d.open[i],high:d.high[i],low:d.low[i],close:d.close[i],volume:d.volume[i],date:dt}; order.push(key); }
+        else {
+          const b = buckets[key];
+          b.high = Math.max(b.high, d.high[i]); b.low = Math.min(b.low, d.low[i]);
+          b.close = d.close[i]; b.volume += d.volume[i]; b.date = dt;
+        }
+      });
+      return {
+        dates: order.map(k=>buckets[k].date),
+        open: order.map(k=>buckets[k].open), high: order.map(k=>buckets[k].high),
+        low: order.map(k=>buckets[k].low), close: order.map(k=>buckets[k].close),
+        volume: order.map(k=>buckets[k].volume)
+      };
+    }
+
+    function findPivots(arr, isHigh, lb){
+      const pivots=[];
+      for (let i=lb;i<arr.length-lb;i++){
+        let ok=true;
+        for (let j=i-lb;j<=i+lb;j++){ if(j===i)continue; if(isHigh? arr[j]>arr[i] : arr[j]<arr[i]){ok=false;break;} }
+        if (ok) pivots.push({idx:i, price:arr[i]});
+      }
+      return pivots;
+    }
+    function within(a,b,tol){ return Math.abs(a-b)/((a+b)/2) <= tol; }
+
+    function detectHeadShoulders(tf, cfg){
+      const {close,high,low} = tf; const highs=findPivots(high,true,cfg.pivotLB), lows=findPivots(low,false,cfg.pivotLB);
+      const found=[];
+      for (let i=0;i<highs.length-2;i++){
+        const P1=highs[i],P2=highs[i+1],P3=highs[i+2];
+        if (!(P2.price>P1.price && P2.price>P3.price)) continue;
+        if (!within(P1.price,P3.price,0.06)) continue;
+        const L1=lows.find(l=>l.idx>P1.idx&&l.idx<P2.idx), L2=lows.find(l=>l.idx>P2.idx&&l.idx<P3.idx);
+        if (!L1||!L2) continue;
+        if (!within(L1.price,L2.price,0.06)) continue;
+        let breakoutIdx=null;
+        for (let k=P3.idx+1;k<close.length;k++){ if (k>L2.idx && close[k]<L2.price*0.995){breakoutIdx=k;break;} }
+        found.push({type:"Head & Shoulders",dir:"bearish",pivots:[P1,L1,P2,L2,P3],formedIdx:P3.idx,breakoutIdx});
+      }
+      return found;
+    }
+    function detectInverseHS(tf, cfg){
+      const {close,high,low} = tf; const highs=findPivots(high,true,cfg.pivotLB), lows=findPivots(low,false,cfg.pivotLB);
+      const found=[];
+      for (let i=0;i<lows.length-2;i++){
+        const P1=lows[i],P2=lows[i+1],P3=lows[i+2];
+        if (!(P2.price<P1.price && P2.price<P3.price)) continue;
+        if (!within(P1.price,P3.price,0.06)) continue;
+        const H1=highs.find(h=>h.idx>P1.idx&&h.idx<P2.idx), H2=highs.find(h=>h.idx>P2.idx&&h.idx<P3.idx);
+        if (!H1||!H2) continue;
+        if (!within(H1.price,H2.price,0.06)) continue;
+        let breakoutIdx=null;
+        for (let k=P3.idx+1;k<close.length;k++){ if (k>H2.idx && close[k]>H2.price*1.005){breakoutIdx=k;break;} }
+        found.push({type:"Inverse H&S",dir:"bullish",pivots:[P1,H1,P2,H2,P3],formedIdx:P3.idx,breakoutIdx});
+      }
+      return found;
+    }
+    function detectDoubleTop(tf, cfg){
+      const {close,high,low} = tf; const highs=findPivots(high,true,cfg.pivotLB), lows=findPivots(low,false,cfg.pivotLB);
+      const found=[];
+      for (let i=0;i<highs.length-1;i++){
+        const P1=highs[i],P2=highs[i+1];
+        if (P2.idx-P1.idx<cfg.minSepDouble) continue;
+        if (!within(P1.price,P2.price,0.025)) continue;
+        const trough=lows.find(l=>l.idx>P1.idx&&l.idx<P2.idx); if(!trough) continue;
+        if ((P1.price-trough.price)/P1.price<0.02) continue;
+        let breakoutIdx=null;
+        for (let k=P2.idx+1;k<close.length;k++){ if(close[k]<trough.price*0.995){breakoutIdx=k;break;} }
+        found.push({type:"Double Top",dir:"bearish",pivots:[P1,trough,P2],formedIdx:P2.idx,breakoutIdx});
+      }
+      return found;
+    }
+    function detectDoubleBottom(tf, cfg){
+      const {close,high,low} = tf; const highs=findPivots(high,true,cfg.pivotLB), lows=findPivots(low,false,cfg.pivotLB);
+      const found=[];
+      for (let i=0;i<lows.length-1;i++){
+        const P1=lows[i],P2=lows[i+1];
+        if (P2.idx-P1.idx<cfg.minSepDouble) continue;
+        if (!within(P1.price,P2.price,0.025)) continue;
+        const peak=highs.find(h=>h.idx>P1.idx&&h.idx<P2.idx); if(!peak) continue;
+        if ((peak.price-P1.price)/P1.price<0.02) continue;
+        let breakoutIdx=null;
+        for (let k=P2.idx+1;k<close.length;k++){ if(close[k]>peak.price*1.005){breakoutIdx=k;break;} }
+        found.push({type:"Double Bottom",dir:"bullish",pivots:[P1,peak,P2],formedIdx:P2.idx,breakoutIdx});
+      }
+      return found;
+    }
+    function detectRectangle(tf, cfg){
+      const {close,high,low} = tf; const highs=findPivots(high,true,cfg.pivotLB), lows=findPivots(low,false,cfg.pivotLB);
+      const found=[];
+      for (let i=0;i<highs.length-1;i++){
+        const clusterHighs = highs.filter(h=>Math.abs(h.idx-highs[i].idx)<Math.max(40,cfg.pivotLB*10) && within(h.price,highs[i].price,0.02));
+        if (clusterHighs.length<2) continue;
+        const lo=Math.min(...clusterHighs.map(h=>h.idx)), hi=Math.max(...clusterHighs.map(h=>h.idx));
+        const resistance = clusterHighs.reduce((a,b)=>a+b.price,0)/clusterHighs.length;
+        const clusterLows = lows.filter(l=>l.idx>=lo-10&&l.idx<=hi+10);
+        const grouped = clusterLows.filter((l,idx,arr)=>arr.some(o=>within(o.price,l.price,0.02)));
+        if (grouped.length<2) continue;
+        const support = grouped.reduce((a,b)=>a+b.price,0)/grouped.length;
+        if ((resistance-support)/support<0.03) continue;
+        if (hi-lo<15) continue;
+        const lastPivotIdx = Math.max(hi,...grouped.map(l=>l.idx));
+        let breakoutIdx=null, breakDir=null;
+        for (let k=lastPivotIdx+1;k<close.length;k++){
+          if (close[k]>resistance*1.005){breakoutIdx=k;breakDir='bullish';break;}
+          if (close[k]<support*0.995){breakoutIdx=k;breakDir='bearish';break;}
+        }
+        found.push({type:"Rectangle Breakout",dir:breakDir||"both",pivots:[...clusterHighs,...grouped].sort((a,b)=>a.idx-b.idx),formedIdx:lastPivotIdx,breakoutIdx});
+      }
+      const dedup=[]; for (const f of found){ if(!dedup.some(g=>Math.abs(g.formedIdx-f.formedIdx)<10)) dedup.push(f); }
+      return dedup;
+    }
+    function detectCupHandle(tf, cfg){
+      const {close,high,low} = tf; const highs=findPivots(high,true,cfg.pivotLB), lows=findPivots(low,false,cfg.pivotLB);
+      const found=[];
+      for (let i=0;i<highs.length-1;i++){
+        const H1=highs[i];
+        const rimCandidates = highs.filter(h=>h.idx>H1.idx && (h.idx-H1.idx)>=cfg.cupMin && (h.idx-H1.idx)<=cfg.cupMax && within(h.price,H1.price,0.06));
+        if (!rimCandidates.length) continue;
+        const H2 = rimCandidates[0];
+        const midLows = lows.filter(l=>l.idx>H1.idx && l.idx<H2.idx);
+        if (!midLows.length) continue;
+        const bottom = midLows.reduce((a,b)=> b.price<a.price?b:a, midLows[0]);
+        const rimAvg = (H1.price+H2.price)/2;
+        const depth = (rimAvg-bottom.price)/rimAvg*100;
+        if (depth<10) continue;
+        const span = H2.idx-H1.idx;
+        if ((bottom.idx-H1.idx) < span*0.2 || (bottom.idx-H1.idx) > span*0.8) continue;
+        const handleLows = lows.filter(l=>l.idx>H2.idx && (l.idx-H2.idx)<=cfg.handleMax);
+        if (!handleLows.length) continue;
+        const handle = handleLows[0];
+        const handleDepth = (H2.price-handle.price)/H2.price*100;
+        if (handleDepth<=0 || handleDepth > depth*0.5) continue;
+        const rim = Math.max(H1.price,H2.price);
+        let breakoutIdx=null;
+        for (let k=handle.idx+1;k<close.length;k++){ if(close[k]>rim*1.005){breakoutIdx=k;break;} }
+        found.push({type:"Cup & Handle",dir:"bullish",pivots:[H1,bottom,H2,handle],formedIdx:handle.idx,breakoutIdx});
+      }
+      return found;
+    }
+
+    function detectSymTriangle(tf, cfg){
+      const {close,high,low} = tf; const highs=findPivots(high,true,cfg.pivotLB), lows=findPivots(low,false,cfg.pivotLB);
+      const found=[];
+      for (let i=0;i<highs.length-1;i++){
+        for (let j=0;j<lows.length-1;j++){
+          const H1=highs[i],H2=highs[i+1],L1=lows[j],L2=lows[j+1];
+          if (Math.abs(H1.idx-L1.idx) > cfg.triMax) continue;
+          if (H2.idx<=H1.idx || L2.idx<=L1.idx) continue;
+          if (!(H2.price<H1.price)) continue;
+          if (!(L2.price>L1.price)) continue;
+          const spanStart = Math.min(H1.idx,L1.idx), spanEnd = Math.max(H2.idx,L2.idx);
+          const span = spanEnd-spanStart;
+          if (span<cfg.triMin || span>cfg.triMax) continue;
+          if (Math.abs(H1.idx-L1.idx) > span*0.5) continue;
+          const upperAt = idx => H1.price + (H2.price-H1.price)*(idx-H1.idx)/(H2.idx-H1.idx);
+          const lowerAt = idx => L1.price + (L2.price-L1.price)*(idx-L1.idx)/(L2.idx-L1.idx);
+          const widthStart = upperAt(spanStart)-lowerAt(spanStart);
+          const widthEnd = upperAt(spanEnd)-lowerAt(spanEnd);
+          if (!(widthEnd < widthStart*0.7) || widthEnd<=0) continue;
+          const formedIdx = spanEnd;
+          let breakoutIdx=null, breakDir=null;
+          for (let k=formedIdx+1;k<close.length;k++){
+            const u=upperAt(k), l=lowerAt(k);
+            if (close[k]>u*1.005){breakoutIdx=k;breakDir='bullish';break;}
+            if (close[k]<l*0.995){breakoutIdx=k;breakDir='bearish';break;}
+          }
+          found.push({type:"Symmetrical Triangle",dir:breakDir||"both",pivots:[H1,L1,H2,L2],formedIdx,breakoutIdx});
+        }
+      }
+      const dedup=[]; for (const f of found){ if(!dedup.some(g=>Math.abs(g.formedIdx-f.formedIdx)<10)) dedup.push(f); }
+      return dedup;
+    }
+
+    function detectReversal(tf, cfg){
+      const {close,high,low} = tf; const highs=findPivots(high,true,cfg.pivotLB), lows=findPivots(low,false,cfg.pivotLB);
+      const found=[];
+      const lookbackStart = Math.max(0, close.length-cfg.reversalLookback);
+      const recentLows = lows.filter(l=>l.idx>=lookbackStart);
+      const recentHighs = highs.filter(h=>h.idx>=lookbackStart);
+      if (recentLows.length){
+        const L = recentLows[recentLows.length-1];
+        let breakoutIdx=null;
+        for (let k=L.idx+1;k<close.length;k++){ if (close[k]>=L.price*1.03){breakoutIdx=k;break;} }
+        found.push({type:"Reversal (Bottom)",dir:"bullish",pivots:[L],formedIdx:L.idx,breakoutIdx,level:L.price,levelType:'support'});
+      }
+      if (recentHighs.length){
+        const H = recentHighs[recentHighs.length-1];
+        let breakoutIdx=null;
+        for (let k=H.idx+1;k<close.length;k++){ if (close[k]<=H.price*0.97){breakoutIdx=k;break;} }
+        found.push({type:"Reversal (Top)",dir:"bearish",pivots:[H],formedIdx:H.idx,breakoutIdx,level:H.price,levelType:'resistance'});
+      }
+      return found;
+    }
+
+    function detectVolumeBreakout(tf, cfg){
+      const {close,high,low,volume} = tf;
+      const found=[];
+      const lb = cfg.rangeLookback, vlb = cfg.volSpikeLookback;
+      for (let i=vlb; i<close.length; i++){
+        if (i<lb+1) continue;
+        let avgVol=0; for(let k=i-vlb;k<i;k++) avgVol+=volume[k]; avgVol/=vlb;
+        if (!avgVol || volume[i] < avgVol*1.5) continue;
+        const rangeHigh = Math.max(...high.slice(i-lb,i));
+        const rangeLow = Math.min(...low.slice(i-lb,i));
+        if (close[i] > rangeHigh){
+          found.push({type:"Volume Breakout",dir:"bullish",pivots:[{idx:i-lb,price:rangeHigh},{idx:i,price:rangeHigh}],formedIdx:i,breakoutIdx:i});
+        } else if (close[i] < rangeLow){
+          found.push({type:"Volume Breakout",dir:"bearish",pivots:[{idx:i-lb,price:rangeLow},{idx:i,price:rangeLow}],formedIdx:i,breakoutIdx:i});
+        }
+      }
+      const dedup=[]; for (const f of found){ if(!dedup.some(g=>g.dir===f.dir && f.formedIdx-g.formedIdx<lb)) dedup.push(f); }
+      return dedup;
+    }
+
+    function detectAccumulationDistribution(tf, cfg){
+      const {close,volume} = tf;
+      const found=[];
+      const lb = cfg.pvLookback;
+      if (close.length < lb+2) return found;
+      const obv = new Array(close.length).fill(0);
+      for (let i=1;i<close.length;i++){
+        obv[i] = obv[i-1] + (close[i]>close[i-1]?volume[i]: close[i]<close[i-1]?-volume[i]:0);
+      }
+      let prevState = null;
+      for (let i=lb; i<close.length; i++){
+        const priceChangePct = (close[i]-close[i-lb])/close[i-lb]*100;
+        let avgVol=0; for(let k=i-lb;k<i;k++) avgVol+=volume[k]; avgVol/=lb;
+        const netOBV = obv[i]-obv[i-lb];
+        const normOBV = avgVol ? netOBV/(avgVol*lb) : 0;
+        let state = null;
+        if (Math.abs(priceChangePct) <= 4 && normOBV > 0.15) state='Accumulation';
+        else if (Math.abs(priceChangePct) <= 4 && normOBV < -0.15) state='Distribution';
+        if (state && state!==prevState){
+          found.push({type:state, dir: state==='Accumulation'?'bullish':'bearish', pivots:[{idx:i-lb,price:close[i-lb]},{idx:i,price:close[i]}], formedIdx:i, breakoutIdx:i});
+        }
+        prevState = state;
+      }
+      return found;
+    }
+
+    function detectAll(tf, cfg){
+      return [].concat(
+        detectHeadShoulders(tf,cfg), detectInverseHS(tf,cfg), detectDoubleTop(tf,cfg),
+        detectDoubleBottom(tf,cfg), detectRectangle(tf,cfg), detectCupHandle(tf,cfg),
+        detectSymTriangle(tf,cfg), detectReversal(tf,cfg),
+        detectVolumeBreakout(tf,cfg), detectAccumulationDistribution(tf,cfg)
+      );
+    }
+
+    function findDailyIdxOnOrAfter(dailyDates, targetDate){
+      for (let i=0;i<dailyDates.length;i++){ if (dailyDates[i]>=targetDate) return i; }
+      return dailyDates.length-1;
+    }
+
+    function atr(tf, period, idx){
+      if (idx<period) return null;
+      let sum=0;
+      for (let k=idx-period+1;k<=idx;k++){
+        const tr = Math.max(
+          tf.high[k]-tf.low[k],
+          Math.abs(tf.high[k]-tf.close[k-1]),
+          Math.abs(tf.low[k]-tf.close[k-1])
+        );
+        sum += tr;
+      }
+      return sum/period;
+    }
+
+    function computeTradePlan(p, tf, cfg){
+      if (p.breakoutIdx==null) return;
+      const dir = p.dir==='both' ? (DIR_W[p.type]==='bearish' || (p.pivots && p.pivots.length && p.breakoutPrice < p.pivots[0].price) ? 'bearish':'bullish') : p.dir;
+      const bp = p.breakoutPrice;
+      let height = null, stop = null;
+      const pv = p.pivots || [];
+      switch(p.type){
+        case "Head & Shoulders": {
+          const neckline = (pv[1].price+pv[3].price)/2;
+          height = pv[2].price - neckline;
+          stop = Math.max(pv[0].price, pv[4].price);
+          break;
+        }
+        case "Inverse H&S": {
+          const neckline = (pv[1].price+pv[3].price)/2;
+          height = neckline - pv[2].price;
+          stop = Math.min(pv[0].price, pv[4].price);
+          break;
+        }
+        case "Double Top": { height = pv[0].price-pv[1].price; stop = Math.max(pv[0].price,pv[2].price); break; }
+        case "Double Bottom": { height = pv[1].price-pv[0].price; stop = Math.min(pv[0].price,pv[2].price); break; }
+        case "Rectangle Breakout": {
+          const prices = pv.map(x=>x.price);
+          const resistance = Math.max(...prices), support = Math.min(...prices);
+          height = resistance-support;
+          stop = dir==='bullish' ? support : resistance;
+          break;
+        }
+        case "Cup & Handle": {
+          const rim = Math.max(pv[0].price,pv[2].price);
+          height = rim - pv[1].price;
+          stop = pv[3].price;
+          break;
+        }
+        case "Symmetrical Triangle": {
+          height = Math.abs(pv[0].price-pv[1].price);
+          stop = dir==='bullish' ? Math.min(pv[1].price,pv[3].price) : Math.max(pv[0].price,pv[2].price);
+          break;
+        }
+        case "Reversal (Bottom)": { height = Math.max(bp - p.level, 0) * 2 || null; stop = p.level*0.985; break; }
+        case "Reversal (Top)": { height = Math.max(p.level - bp, 0) * 2 || null; stop = p.level*1.015; break; }
+        default: break;
+      }
+      if (!height || height<=0){
+        const a = atr(tf, cfg.atrPeriod, p.breakoutIdx);
+        height = a ? a*2 : bp*0.03;
+        if (stop==null){
+          const aStop = atr(tf, cfg.atrPeriod, p.breakoutIdx);
+          stop = dir==='bullish' ? bp-(aStop||bp*0.015) : bp+(aStop||bp*0.015);
+        }
+      }
+      const target = dir==='bullish' ? bp+height : bp-height;
+      if (stop==null) stop = dir==='bullish' ? bp-height*0.5 : bp+height*0.5;
+      const risk = Math.abs(bp-stop), reward = Math.abs(target-bp);
+      p.target = target; p.stop = stop; p.riskReward = risk ? reward/risk : null;
+    }
+
+    function evaluateInstance(p, tf, daily, cfg){
+      p.formedDate = tf.dates[p.formedIdx];
+      if (p.breakoutIdx==null){
+        p.breakoutDate=null; p.breakoutPrice=null; p.retest=null; p.supportHeld=null; p.forward={}; p.outcome='In Progress';
+        return p;
+      }
+      p.breakoutDate = tf.dates[p.breakoutIdx];
+      p.breakoutPrice = tf.close[p.breakoutIdx];
+      const dIdx = findDailyIdxOnOrAfter(daily.dates, p.breakoutDate);
+      const dir = p.dir==='both' ? (p.breakoutPrice!=null?'bullish':'bearish') : p.dir;
+      let retest=null;
+      for (let k=dIdx+1;k<Math.min(daily.close.length, dIdx+1+cfg.retestWindow);k++){
+        if (Math.abs(daily.close[k]-p.breakoutPrice)/p.breakoutPrice<=0.015){ retest={idx:k,date:daily.dates[k],price:daily.close[k]}; break; }
+      }
+      let supportHeld=null;
+      if (retest){
+        let held=true;
+        for (let k=retest.idx+1;k<Math.min(daily.close.length, retest.idx+6);k++){
+          if (dir==='bullish' && daily.close[k]<p.breakoutPrice*0.985){held=false;break;}
+          if (dir==='bearish' && daily.close[k]>p.breakoutPrice*1.015){held=false;break;}
+        }
+        supportHeld=held;
+      }
+      const fwd={};
+      [10,20,30].forEach(n=>{ if (dIdx+n<daily.close.length) fwd['r'+n]=(daily.close[dIdx+n]-p.breakoutPrice)/p.breakoutPrice*100; });
+      let outcome='In Progress';
+      if (fwd.r30!=null){ const success = dir==='bullish'? fwd.r30>1 : fwd.r30<-1; outcome = success?'Successful':'Failed'; }
+      p.retest=retest; p.supportHeld=supportHeld; p.forward=fwd; p.outcome=outcome; p.dailyIdx=dIdx;
+      computeTradePlan(p, tf, cfg);
+      return p;
+    }
+
+    self.onmessage = function(e){
+      const msg = e.data;
+      if (msg.type !== 'scan') return;
+      const symbols = msg.symbols;
+      const dailyData = msg.dailyData;
+      const stockPatterns = {};
+      const allPatternsFlat = [];
+      let done = 0;
+      for (const sym of symbols){
+        const daily = dailyData[sym];
+        daily.dates = daily.dates.map(d => new Date(d));
+        if (daily.close.length >= 80){
+          const weekly = resample(daily,'W'), monthly = resample(daily,'M');
+          const perTF = {};
+          [['D',daily],['W',weekly],['M',monthly]].forEach(([mode,tf])=>{
+            const cfg = TF_CONFIG[mode];
+            const insts = detectAll(tf,cfg).map(p=>evaluateInstance(p,tf,daily,cfg));
+            insts.forEach(p=>{ p.symbol=sym; p.timeframe=mode; });
+            perTF[mode]=insts;
+            allPatternsFlat.push(...insts);
+          });
+          stockPatterns[sym] = perTF;
+        }
+        done++;
+        if (done % 5 === 0 || done === symbols.length){
+          self.postMessage({type:'progress', done, total: symbols.length});
+        }
+      }
+      self.postMessage({type:'done', stockPatterns, allPatternsFlat});
+    };
+  `;
+
+  let patternWorker = null;
+  function runPatternWorker(universeData){
+    return new Promise((resolve, reject)=>{
+      try{
+        if (patternWorker) patternWorker.terminate();
+        const blob = new Blob([WORKER_SOURCE], {type:'application/javascript'});
+        patternWorker = new Worker(URL.createObjectURL(blob));
+      }catch(err){ reject(err); return; }
+      const progressWrap = document.getElementById('progressWrap');
+      const progressFill = document.getElementById('progressFill');
+      const progressLabel = document.getElementById('progressLabel');
+      progressWrap.style.display = 'block';
+      patternWorker.onmessage = (e)=>{
+        const msg = e.data;
+        if (msg.type==='progress'){
+          progressLabel.textContent = `Scanning patterns (background thread, page stays responsive)... ${msg.done}/${msg.total} stocks`;
+          progressFill.style.width = msg.total ? Math.round(msg.done/msg.total*100)+'%' : '0%';
+        } else if (msg.type==='done'){
+          progressWrap.style.display = 'none';
+          resolve({stockPatterns: msg.stockPatterns, allPatternsFlat: msg.allPatternsFlat});
+        }
+      };
+      patternWorker.onerror = (err)=>{ progressWrap.style.display='none'; reject(err); };
+      // send only the fields the worker needs, to keep the postMessage payload lean
+      const payload = {};
+      Object.keys(universeData).forEach(sym=>{
+        const d = universeData[sym];
+        payload[sym] = {dates:d.dates, open:d.open, high:d.high, low:d.low, close:d.close, volume:d.volume};
+      });
+      patternWorker.postMessage({type:'scan', symbols: Object.keys(payload), dailyData: payload});
+    });
+  }
+
+  // ---------- resampling (kept here too -- used directly by the stock-detail view for trend labels) ----------
   function resample(d, mode){
     if (mode==='D') return d;
     const buckets = {};
@@ -256,7 +706,7 @@
     };
   }
 
-  // ---------- pivots ----------
+  // ---------- pivots (kept here too -- used by nearestLevels on the main thread) ----------
   function findPivots(arr, isHigh, lb){
     const pivots=[];
     for (let i=lb;i<arr.length-lb;i++){
@@ -267,179 +717,6 @@
     return pivots;
   }
   function within(a,b,tol){ return Math.abs(a-b)/((a+b)/2) <= tol; }
-
-  // ---------- pattern detectors (generic over any {close,high,low,dates}) ----------
-  function detectHeadShoulders(tf, cfg){
-    const {close,high,low} = tf; const highs=findPivots(high,true,cfg.pivotLB), lows=findPivots(low,false,cfg.pivotLB);
-    const found=[];
-    for (let i=0;i<highs.length-2;i++){
-      const P1=highs[i],P2=highs[i+1],P3=highs[i+2];
-      if (!(P2.price>P1.price && P2.price>P3.price)) continue;
-      if (!within(P1.price,P3.price,0.06)) continue;
-      const L1=lows.find(l=>l.idx>P1.idx&&l.idx<P2.idx), L2=lows.find(l=>l.idx>P2.idx&&l.idx<P3.idx);
-      if (!L1||!L2) continue;
-      if (!within(L1.price,L2.price,0.06)) continue;
-      let breakoutIdx=null;
-      for (let k=P3.idx+1;k<close.length;k++){ if (k>L2.idx && close[k]<L2.price*0.995){breakoutIdx=k;break;} }
-      found.push({type:"Head & Shoulders",dir:"bearish",pivots:[P1,L1,P2,L2,P3],formedIdx:P3.idx,breakoutIdx});
-    }
-    return found;
-  }
-  function detectInverseHS(tf, cfg){
-    const {close,high,low} = tf; const highs=findPivots(high,true,cfg.pivotLB), lows=findPivots(low,false,cfg.pivotLB);
-    const found=[];
-    for (let i=0;i<lows.length-2;i++){
-      const P1=lows[i],P2=lows[i+1],P3=lows[i+2];
-      if (!(P2.price<P1.price && P2.price<P3.price)) continue;
-      if (!within(P1.price,P3.price,0.06)) continue;
-      const H1=highs.find(h=>h.idx>P1.idx&&h.idx<P2.idx), H2=highs.find(h=>h.idx>P2.idx&&h.idx<P3.idx);
-      if (!H1||!H2) continue;
-      if (!within(H1.price,H2.price,0.06)) continue;
-      let breakoutIdx=null;
-      for (let k=P3.idx+1;k<close.length;k++){ if (k>H2.idx && close[k]>H2.price*1.005){breakoutIdx=k;break;} }
-      found.push({type:"Inverse H&S",dir:"bullish",pivots:[P1,H1,P2,H2,P3],formedIdx:P3.idx,breakoutIdx});
-    }
-    return found;
-  }
-  function detectDoubleTop(tf, cfg){
-    const {close,high,low} = tf; const highs=findPivots(high,true,cfg.pivotLB), lows=findPivots(low,false,cfg.pivotLB);
-    const found=[];
-    for (let i=0;i<highs.length-1;i++){
-      const P1=highs[i],P2=highs[i+1];
-      if (P2.idx-P1.idx<cfg.minSepDouble) continue;
-      if (!within(P1.price,P2.price,0.025)) continue;
-      const trough=lows.find(l=>l.idx>P1.idx&&l.idx<P2.idx); if(!trough) continue;
-      if ((P1.price-trough.price)/P1.price<0.02) continue;
-      let breakoutIdx=null;
-      for (let k=P2.idx+1;k<close.length;k++){ if(close[k]<trough.price*0.995){breakoutIdx=k;break;} }
-      found.push({type:"Double Top",dir:"bearish",pivots:[P1,trough,P2],formedIdx:P2.idx,breakoutIdx});
-    }
-    return found;
-  }
-  function detectDoubleBottom(tf, cfg){
-    const {close,high,low} = tf; const highs=findPivots(high,true,cfg.pivotLB), lows=findPivots(low,false,cfg.pivotLB);
-    const found=[];
-    for (let i=0;i<lows.length-1;i++){
-      const P1=lows[i],P2=lows[i+1];
-      if (P2.idx-P1.idx<cfg.minSepDouble) continue;
-      if (!within(P1.price,P2.price,0.025)) continue;
-      const peak=highs.find(h=>h.idx>P1.idx&&h.idx<P2.idx); if(!peak) continue;
-      if ((peak.price-P1.price)/P1.price<0.02) continue;
-      let breakoutIdx=null;
-      for (let k=P2.idx+1;k<close.length;k++){ if(close[k]>peak.price*1.005){breakoutIdx=k;break;} }
-      found.push({type:"Double Bottom",dir:"bullish",pivots:[P1,peak,P2],formedIdx:P2.idx,breakoutIdx});
-    }
-    return found;
-  }
-  function detectRectangle(tf, cfg){
-    const {close,high,low} = tf; const highs=findPivots(high,true,cfg.pivotLB), lows=findPivots(low,false,cfg.pivotLB);
-    const found=[];
-    for (let i=0;i<highs.length-1;i++){
-      const clusterHighs = highs.filter(h=>Math.abs(h.idx-highs[i].idx)<Math.max(40,cfg.pivotLB*10) && within(h.price,highs[i].price,0.02));
-      if (clusterHighs.length<2) continue;
-      const lo=Math.min(...clusterHighs.map(h=>h.idx)), hi=Math.max(...clusterHighs.map(h=>h.idx));
-      const resistance = clusterHighs.reduce((a,b)=>a+b.price,0)/clusterHighs.length;
-      const clusterLows = lows.filter(l=>l.idx>=lo-10&&l.idx<=hi+10);
-      const grouped = clusterLows.filter((l,idx,arr)=>arr.some(o=>within(o.price,l.price,0.02)));
-      if (grouped.length<2) continue;
-      const support = grouped.reduce((a,b)=>a+b.price,0)/grouped.length;
-      if ((resistance-support)/support<0.03) continue;
-      if (hi-lo<15) continue;
-      const lastPivotIdx = Math.max(hi,...grouped.map(l=>l.idx));
-      let breakoutIdx=null, breakDir=null;
-      for (let k=lastPivotIdx+1;k<close.length;k++){
-        if (close[k]>resistance*1.005){breakoutIdx=k;breakDir='bullish';break;}
-        if (close[k]<support*0.995){breakoutIdx=k;breakDir='bearish';break;}
-      }
-      found.push({type:"Rectangle Breakout",dir:breakDir||"both",pivots:[...clusterHighs,...grouped].sort((a,b)=>a.idx-b.idx),formedIdx:lastPivotIdx,breakoutIdx});
-    }
-    const dedup=[]; for (const f of found){ if(!dedup.some(g=>Math.abs(g.formedIdx-f.formedIdx)<10)) dedup.push(f); }
-    return dedup;
-  }
-  function detectCupHandle(tf, cfg){
-    const {close,high,low} = tf; const highs=findPivots(high,true,cfg.pivotLB), lows=findPivots(low,false,cfg.pivotLB);
-    const found=[];
-    for (let i=0;i<highs.length-1;i++){
-      const H1=highs[i];
-      const rimCandidates = highs.filter(h=>h.idx>H1.idx && (h.idx-H1.idx)>=cfg.cupMin && (h.idx-H1.idx)<=cfg.cupMax && within(h.price,H1.price,0.06));
-      if (!rimCandidates.length) continue;
-      const H2 = rimCandidates[0];
-      const midLows = lows.filter(l=>l.idx>H1.idx && l.idx<H2.idx);
-      if (!midLows.length) continue;
-      const bottom = midLows.reduce((a,b)=> b.price<a.price?b:a, midLows[0]);
-      const rimAvg = (H1.price+H2.price)/2;
-      const depth = (rimAvg-bottom.price)/rimAvg*100;
-      if (depth<10) continue; // too shallow to be a cup
-      // require bottom roughly in the middle third
-      const span = H2.idx-H1.idx;
-      if ((bottom.idx-H1.idx) < span*0.2 || (bottom.idx-H1.idx) > span*0.8) continue;
-      // handle: shallow pullback shortly after H2
-      const handleLows = lows.filter(l=>l.idx>H2.idx && (l.idx-H2.idx)<=cfg.handleMax);
-      if (!handleLows.length) continue;
-      const handle = handleLows[0];
-      const handleDepth = (H2.price-handle.price)/H2.price*100;
-      if (handleDepth<=0 || handleDepth > depth*0.5) continue; // handle should be shallower than cup
-      const rim = Math.max(H1.price,H2.price);
-      let breakoutIdx=null;
-      for (let k=handle.idx+1;k<close.length;k++){ if(close[k]>rim*1.005){breakoutIdx=k;break;} }
-      found.push({type:"Cup & Handle",dir:"bullish",pivots:[H1,bottom,H2,handle],formedIdx:handle.idx,breakoutIdx});
-    }
-    return found;
-  }
-
-  function detectSymTriangle(tf, cfg){
-    const {close,high,low} = tf; const highs=findPivots(high,true,cfg.pivotLB), lows=findPivots(low,false,cfg.pivotLB);
-    const found=[];
-    for (let i=0;i<highs.length-1;i++){
-      for (let j=0;j<lows.length-1;j++){
-        const H1=highs[i],H2=highs[i+1],L1=lows[j],L2=lows[j+1];
-        if (H2.idx<=H1.idx || L2.idx<=L1.idx) continue;
-        if (!(H2.price<H1.price)) continue;     // lower highs
-        if (!(L2.price>L1.price)) continue;     // higher lows
-        const spanStart = Math.min(H1.idx,L1.idx), spanEnd = Math.max(H2.idx,L2.idx);
-        const span = spanEnd-spanStart;
-        if (span<cfg.triMin || span>cfg.triMax) continue;
-        // require decent overlap between the two trendline segments in time
-        if (Math.abs(H1.idx-L1.idx) > span*0.5) continue;
-        const upperAt = idx => H1.price + (H2.price-H1.price)*(idx-H1.idx)/(H2.idx-H1.idx);
-        const lowerAt = idx => L1.price + (L2.price-L1.price)*(idx-L1.idx)/(L2.idx-L1.idx);
-        const widthStart = upperAt(spanStart)-lowerAt(spanStart);
-        const widthEnd = upperAt(spanEnd)-lowerAt(spanEnd);
-        if (!(widthEnd < widthStart*0.7) || widthEnd<=0) continue; // must be genuinely converging
-        const formedIdx = spanEnd;
-        let breakoutIdx=null, breakDir=null;
-        for (let k=formedIdx+1;k<close.length;k++){
-          const u=upperAt(k), l=lowerAt(k);
-          if (close[k]>u*1.005){breakoutIdx=k;breakDir='bullish';break;}
-          if (close[k]<l*0.995){breakoutIdx=k;breakDir='bearish';break;}
-        }
-        found.push({type:"Symmetrical Triangle",dir:breakDir||"both",pivots:[H1,L1,H2,L2],formedIdx,breakoutIdx});
-      }
-    }
-    const dedup=[]; for (const f of found){ if(!dedup.some(g=>Math.abs(g.formedIdx-f.formedIdx)<10)) dedup.push(f); }
-    return dedup;
-  }
-
-  function detectReversal(tf, cfg){
-    const {close,high,low} = tf; const highs=findPivots(high,true,cfg.pivotLB), lows=findPivots(low,false,cfg.pivotLB);
-    const found=[];
-    const lookbackStart = Math.max(0, close.length-cfg.reversalLookback);
-    const recentLows = lows.filter(l=>l.idx>=lookbackStart);
-    const recentHighs = highs.filter(h=>h.idx>=lookbackStart);
-    if (recentLows.length){
-      const L = recentLows[recentLows.length-1];
-      let breakoutIdx=null;
-      for (let k=L.idx+1;k<close.length;k++){ if (close[k]>=L.price*1.03){breakoutIdx=k;break;} }
-      found.push({type:"Reversal (Bottom)",dir:"bullish",pivots:[L],formedIdx:L.idx,breakoutIdx,level:L.price,levelType:'support'});
-    }
-    if (recentHighs.length){
-      const H = recentHighs[recentHighs.length-1];
-      let breakoutIdx=null;
-      for (let k=H.idx+1;k<close.length;k++){ if (close[k]<=H.price*0.97){breakoutIdx=k;break;} }
-      found.push({type:"Reversal (Top)",dir:"bearish",pivots:[H],formedIdx:H.idx,breakoutIdx,level:H.price,levelType:'resistance'});
-    }
-    return found;
-  }
 
   // nearest live support/resistance from recent swing points, independent of any specific pattern
   function nearestLevels(daily, lookback=120){
@@ -452,179 +729,6 @@
       support: supportsBelow[0] ? supportsBelow[0].price : null,
       resistance: resistancesAbove[0] ? resistancesAbove[0].price : null
     };
-  }
-
-  // price breaks a recent N-bar range on a volume spike -- a standalone confirmation signal,
-  // independent of the geometric patterns above
-  function detectVolumeBreakout(tf, cfg){
-    const {close,high,low,volume} = tf;
-    const found=[];
-    const lb = cfg.rangeLookback, vlb = cfg.volSpikeLookback;
-    for (let i=vlb; i<close.length; i++){
-      if (i<lb+1) continue;
-      let avgVol=0; for(let k=i-vlb;k<i;k++) avgVol+=volume[k]; avgVol/=vlb;
-      if (!avgVol || volume[i] < avgVol*1.5) continue; // needs a genuine spike
-      const rangeHigh = Math.max(...high.slice(i-lb,i));
-      const rangeLow = Math.min(...low.slice(i-lb,i));
-      if (close[i] > rangeHigh){
-        found.push({type:"Volume Breakout",dir:"bullish",pivots:[{idx:i-lb,price:rangeHigh},{idx:i,price:rangeHigh}],formedIdx:i,breakoutIdx:i});
-      } else if (close[i] < rangeLow){
-        found.push({type:"Volume Breakout",dir:"bearish",pivots:[{idx:i-lb,price:rangeLow},{idx:i,price:rangeLow}],formedIdx:i,breakoutIdx:i});
-      }
-    }
-    // keep only the start of each cluster (avoid flagging every day of a multi-day move)
-    const dedup=[]; for (const f of found){ if(!dedup.some(g=>g.dir===f.dir && f.formedIdx-g.formedIdx<lb)) dedup.push(f); }
-    return dedup;
-  }
-
-  // OBV vs price divergence: flat/sideways price with rising OBV = quiet accumulation;
-  // flat/firm price with falling OBV = distribution into strength
-  function detectAccumulationDistribution(tf, cfg){
-    const {close,volume} = tf;
-    const found=[];
-    const lb = cfg.pvLookback;
-    if (close.length < lb+2) return found;
-    const obv = new Array(close.length).fill(0);
-    for (let i=1;i<close.length;i++){
-      obv[i] = obv[i-1] + (close[i]>close[i-1]?volume[i]: close[i]<close[i-1]?-volume[i]:0);
-    }
-    let prevState = null;
-    for (let i=lb; i<close.length; i++){
-      const priceChangePct = (close[i]-close[i-lb])/close[i-lb]*100;
-      let avgVol=0; for(let k=i-lb;k<i;k++) avgVol+=volume[k]; avgVol/=lb;
-      const netOBV = obv[i]-obv[i-lb];
-      const normOBV = avgVol ? netOBV/(avgVol*lb) : 0;
-      let state = null;
-      if (Math.abs(priceChangePct) <= 4 && normOBV > 0.15) state='Accumulation';
-      else if (Math.abs(priceChangePct) <= 4 && normOBV < -0.15) state='Distribution';
-      if (state && state!==prevState){
-        found.push({type:state, dir: state==='Accumulation'?'bullish':'bearish', pivots:[{idx:i-lb,price:close[i-lb]},{idx:i,price:close[i]}], formedIdx:i, breakoutIdx:i});
-      }
-      prevState = state;
-    }
-    return found;
-  }
-
-  function detectAll(tf, cfg){
-    return [].concat(
-      detectHeadShoulders(tf,cfg), detectInverseHS(tf,cfg), detectDoubleTop(tf,cfg),
-      detectDoubleBottom(tf,cfg), detectRectangle(tf,cfg), detectCupHandle(tf,cfg),
-      detectSymTriangle(tf,cfg), detectReversal(tf,cfg),
-      detectVolumeBreakout(tf,cfg), detectAccumulationDistribution(tf,cfg)
-    );
-  }
-
-  // ---------- daily-index mapping & instance evaluation ----------
-  function findDailyIdxOnOrAfter(dailyDates, targetDate){
-    for (let i=0;i<dailyDates.length;i++){ if (dailyDates[i]>=targetDate) return i; }
-    return dailyDates.length-1;
-  }
-
-  function evaluateInstance(p, tf, daily, cfg){
-    p.formedDate = tf.dates[p.formedIdx];
-    if (p.breakoutIdx==null){
-      p.breakoutDate=null; p.breakoutPrice=null; p.retest=null; p.supportHeld=null; p.forward={}; p.outcome='In Progress';
-      return p;
-    }
-    p.breakoutDate = tf.dates[p.breakoutIdx];
-    p.breakoutPrice = tf.close[p.breakoutIdx];
-    const dIdx = findDailyIdxOnOrAfter(daily.dates, p.breakoutDate);
-    const dir = p.dir==='both' ? (p.breakoutPrice!=null?'bullish':'bearish') : p.dir;
-    let retest=null;
-    for (let k=dIdx+1;k<Math.min(daily.close.length, dIdx+1+cfg.retestWindow);k++){
-      if (Math.abs(daily.close[k]-p.breakoutPrice)/p.breakoutPrice<=0.015){ retest={idx:k,date:daily.dates[k],price:daily.close[k]}; break; }
-    }
-    let supportHeld=null;
-    if (retest){
-      let held=true;
-      for (let k=retest.idx+1;k<Math.min(daily.close.length, retest.idx+6);k++){
-        if (dir==='bullish' && daily.close[k]<p.breakoutPrice*0.985){held=false;break;}
-        if (dir==='bearish' && daily.close[k]>p.breakoutPrice*1.015){held=false;break;}
-      }
-      supportHeld=held;
-    }
-    const fwd={};
-    [10,20,30].forEach(n=>{ if (dIdx+n<daily.close.length) fwd['r'+n]=(daily.close[dIdx+n]-p.breakoutPrice)/p.breakoutPrice*100; });
-    let outcome='In Progress';
-    if (fwd.r30!=null){ const success = dir==='bullish'? fwd.r30>1 : fwd.r30<-1; outcome = success?'Successful':'Failed'; }
-    p.retest=retest; p.supportHeld=supportHeld; p.forward=fwd; p.outcome=outcome; p.dailyIdx=dIdx;
-    computeTradePlan(p, tf, cfg);
-    return p;
-  }
-
-  // Average True Range, used as a fallback height estimate for patterns without clean geometry
-  function atr(tf, period, idx){
-    if (idx<period) return null;
-    let sum=0;
-    for (let k=idx-period+1;k<=idx;k++){
-      const tr = Math.max(
-        tf.high[k]-tf.low[k],
-        Math.abs(tf.high[k]-tf.close[k-1]),
-        Math.abs(tf.low[k]-tf.close[k-1])
-      );
-      sum += tr;
-    }
-    return sum/period;
-  }
-
-  // Measured-move target + structural stop-loss, per pattern type's own geometry where possible,
-  // falling back to an ATR-based projection for patterns without a clean "height" (reversals,
-  // volume/OBV signals, triangle edge cases).
-  function computeTradePlan(p, tf, cfg){
-    if (p.breakoutIdx==null) return;
-    const dir = p.dir==='both' ? (DIR[p.type]==='bearish' || (p.pivots && p.pivots.length && p.breakoutPrice < p.pivots[0].price) ? 'bearish':'bullish') : p.dir;
-    const bp = p.breakoutPrice;
-    let height = null, stop = null;
-    const pv = p.pivots || [];
-    switch(p.type){
-      case "Head & Shoulders": { // pivots: [P1,L1,P2(head),L2,P3]
-        const neckline = (pv[1].price+pv[3].price)/2;
-        height = pv[2].price - neckline;
-        stop = Math.max(pv[0].price, pv[4].price); // above the shoulders
-        break;
-      }
-      case "Inverse H&S": { // pivots: [P1,H1,P2(head),H2,P3]
-        const neckline = (pv[1].price+pv[3].price)/2;
-        height = neckline - pv[2].price;
-        stop = Math.min(pv[0].price, pv[4].price);
-        break;
-      }
-      case "Double Top": { height = pv[0].price-pv[1].price; stop = Math.max(pv[0].price,pv[2].price); break; }
-      case "Double Bottom": { height = pv[1].price-pv[0].price; stop = Math.min(pv[0].price,pv[2].price); break; }
-      case "Rectangle Breakout": {
-        const prices = pv.map(x=>x.price);
-        const resistance = Math.max(...prices), support = Math.min(...prices);
-        height = resistance-support;
-        stop = dir==='bullish' ? support : resistance;
-        break;
-      }
-      case "Cup & Handle": { // pivots: [H1,bottom,H2,handle]
-        const rim = Math.max(pv[0].price,pv[2].price);
-        height = rim - pv[1].price;
-        stop = pv[3].price;
-        break;
-      }
-      case "Symmetrical Triangle": { // pivots: [H1,L1,H2,L2]
-        height = Math.abs(pv[0].price-pv[1].price); // width at the wider/earlier point
-        stop = dir==='bullish' ? Math.min(pv[1].price,pv[3].price) : Math.max(pv[0].price,pv[2].price);
-        break;
-      }
-      case "Reversal (Bottom)": { height = Math.max(bp - p.level, 0) * 2 || null; stop = p.level*0.985; break; }
-      case "Reversal (Top)": { height = Math.max(p.level - bp, 0) * 2 || null; stop = p.level*1.015; break; }
-      default: break; // Volume Breakout / Accumulation / Distribution -> ATR fallback below
-    }
-    if (!height || height<=0){
-      const a = atr(tf, cfg.atrPeriod, p.breakoutIdx);
-      height = a ? a*2 : bp*0.03; // last-resort: 3% of price if ATR unavailable
-      if (stop==null){
-        const aStop = atr(tf, cfg.atrPeriod, p.breakoutIdx);
-        stop = dir==='bullish' ? bp-(aStop||bp*0.015) : bp+(aStop||bp*0.015);
-      }
-    }
-    const target = dir==='bullish' ? bp+height : bp-height;
-    if (stop==null) stop = dir==='bullish' ? bp-height*0.5 : bp+height*0.5;
-    const risk = Math.abs(bp-stop), reward = Math.abs(target-bp);
-    p.target = target; p.stop = stop; p.riskReward = risk ? reward/risk : null;
   }
 
   // volume ratio at breakout vs trailing average, within a given timeframe series
@@ -761,47 +865,34 @@
       marketContext.vix = {value:v, label: v<13?'Low / Complacent': v<=20?'Normal':'Elevated / Fear', cls: v<13?'neutral': v<=20?'good':'bearish'};
     }
 
-    stockPatterns = {}; allPatternsFlat = []; aggregateCache = {};
+    aggregateCache = {};
     const symbols = Object.keys(universe);
-    const BATCH_SIZE = 15; // process this many stocks, then yield to the browser so the page stays responsive
 
-    const progressWrap = document.getElementById('progressWrap');
-    const progressFill = document.getElementById('progressFill');
-    const progressLabel = document.getElementById('progressLabel');
-    progressWrap.style.display = 'block';
+    // cheap per-stock stats computed on the main thread (fast, O(n), no need for a worker)
+    symbols.forEach(sym=>{
+      const daily = universe[sym];
+      if (daily.close.length<80) return;
+      const r1 = stockReturn(daily.close, daily.dates, 21), r3 = stockReturn(daily.close, daily.dates, 63);
+      daily.rs1m = (r1!=null && marketContext.niftyReturn1m!=null) ? r1-marketContext.niftyReturn1m : null;
+      daily.rs3m = (r3!=null && marketContext.niftyReturn3m!=null) ? r3-marketContext.niftyReturn3m : null;
+      const n = daily.close.length, lb = Math.min(20, n);
+      let turnoverSum=0; for (let k=n-lb;k<n;k++) turnoverSum += daily.close[k]*(daily.volume[k]||0);
+      daily.avgDailyTurnoverCr = (turnoverSum/lb)/1e7;
+    });
 
-    for (let bStart=0; bStart<symbols.length; bStart+=BATCH_SIZE){
-      const batch = symbols.slice(bStart, bStart+BATCH_SIZE);
-      for (const sym of batch){
-        const daily = universe[sym];
-        if (daily.close.length<80) continue;
-
-        // relative strength vs Nifty
-        const r1 = stockReturn(daily.close, daily.dates, 21), r3 = stockReturn(daily.close, daily.dates, 63);
-        daily.rs1m = (r1!=null && marketContext.niftyReturn1m!=null) ? r1-marketContext.niftyReturn1m : null;
-        daily.rs3m = (r3!=null && marketContext.niftyReturn3m!=null) ? r3-marketContext.niftyReturn3m : null;
-        // liquidity: average daily traded value over the last 20 sessions, in Rs crore
-        const n = daily.close.length, lb = Math.min(20, n);
-        let turnoverSum=0; for (let k=n-lb;k<n;k++) turnoverSum += daily.close[k]*(daily.volume[k]||0);
-        daily.avgDailyTurnoverCr = (turnoverSum/lb)/1e7;
-
-        const weekly = resample(daily,'W'), monthly = resample(daily,'M');
-        const perTF = {};
-        [['D',daily],['W',weekly],['M',monthly]].forEach(([mode,tf])=>{
-          const cfg = TF_CONFIG[mode];
-          const insts = detectAll(tf,cfg).map(p=>evaluateInstance(p,tf,daily,cfg));
-          insts.forEach(p=>{ p.symbol=sym; p.timeframe=mode; });
-          perTF[mode]=insts;
-          allPatternsFlat.push(...insts);
-        });
-        stockPatterns[sym] = perTF;
-      }
-      const done = Math.min(bStart+BATCH_SIZE, symbols.length);
-      progressLabel.textContent = `Scanning patterns... ${done}/${symbols.length} stocks`;
-      progressFill.style.width = symbols.length ? Math.round(done/symbols.length*100)+'%' : '0%';
-      await new Promise(r=>setTimeout(r, 0)); // yield to the browser between batches
+    // heavy pattern detection runs in the Web Worker -- the page stays fully responsive while this runs,
+    // however long it takes, because it's on a separate thread entirely.
+    try{
+      const result = await runPatternWorker(universe);
+      stockPatterns = result.stockPatterns;
+      allPatternsFlat = result.allPatternsFlat;
+      // the worker's structured-clone round trip turns Date fields back into real Date objects
+      // automatically, but breakoutDate/formedDate on each pattern need no further handling here.
+    }catch(err){
+      console.error('Pattern worker failed:', err);
+      stockPatterns = {}; allPatternsFlat = [];
+      document.getElementById('fileStatus').textContent = 'Pattern scanning failed in the background worker: ' + (err && err.message ? err.message : err);
     }
-    progressWrap.style.display = 'none';
   }
 
   // ---------- aggregation across universe ----------

@@ -200,7 +200,7 @@
   </div>
 
   <div class="foot-note" id="footNote" style="display:none;">
-    Heuristic swing-pivot pattern detection, not a certified charting engine or investment advice &mdash; I'm not a licensed advisor. "Retest" checks whether price revisited the breakout level within a timeframe-scaled window; "support held" checks it didn't close back through that level in the following few sessions. "Successful/Failed" outcome is based on the 30-trading-day forward return relative to breakout direction, so very recent breakouts show "In Progress" until that window completes. Historical evidence stats aggregate every instance found across your loaded universe and history depth &mdash; small n means a rougher estimate, shown next to each stat. Target/Stop-loss use each pattern's own measured-move geometry where one exists, falling back to an ATR-based estimate otherwise (reversals, volume/OBV signals) -- these are mechanical projections, not guarantees; always sanity-check against the chart. The Top Picks conviction score is a weighted blend of recency, volume, relative strength, fundamentals, historical pattern success rate, and risk-reward -- it's a shortlist to start research from, not a buy signal. Accumulation/Distribution flag OBV-vs-price divergence over a rolling window and can lag real sentiment shifts. Data is a static snapshot from your last script run; see the script for scheduling it to refresh automatically each day.
+    Heuristic swing-pivot pattern detection, not a certified charting engine or investment advice &mdash; I'm not a licensed advisor. "Retest" checks whether price revisited the breakout level within a timeframe-scaled window; "support held" checks it didn't close back through that level in the following few sessions. "Successful/Failed" outcome is based on the 30-trading-day forward return relative to breakout direction, so very recent breakouts show "In Progress" until that window completes. Historical evidence stats aggregate every instance found across your loaded universe and history depth &mdash; small n means a rougher estimate, shown next to each stat. Target/Stop-loss use each pattern's own measured-move geometry where one exists, falling back to an ATR-based estimate otherwise (reversals, volume/OBV signals) -- these are mechanical projections, not guarantees; always sanity-check against the chart. The Top Picks conviction score is a weighted blend of recency, volume, relative strength, fundamentals, historical pattern success rate, and risk-reward -- it's a shortlist to start research from, not a buy signal. Accumulation/Distribution flag OBV-vs-price divergence over a rolling window and can lag real sentiment shifts. To keep the page responsive, at most the 8 most recent instances per stock/timeframe/pattern-type are kept -- "Occurrences" in Historical Evidence reflects that capped sample, not every instance in the full loaded history, which matters most for the frequently-firing Accumulation/Distribution/Volume Breakout signals. Data is a static snapshot from your last script run; see the script for scheduling it to refresh automatically each day.
   </div>
 </div>
 
@@ -628,8 +628,24 @@
           const perTF = {};
           [['D',daily],['W',weekly],['M',monthly]].forEach(([mode,tf])=>{
             const cfg = TF_CONFIG[mode];
-            const insts = detectAll(tf,cfg).map(p=>evaluateInstance(p,tf,daily,cfg));
+            let insts = detectAll(tf,cfg).map(p=>evaluateInstance(p,tf,daily,cfg));
             insts.forEach(p=>{ p.symbol=sym; p.timeframe=mode; });
+            // cap instances kept per (stock, timeframe, pattern type) to the most recent few --
+            // some detectors (Accumulation/Distribution, Volume Breakout) can fire many times
+            // across 4 years of history, and without this cap the full-universe total can reach
+            // tens of thousands of instances, which is what was freezing the page.
+            const CAP_PER_TYPE = 8;
+            const byType = {};
+            insts.forEach(p=>{ (byType[p.type] = byType[p.type]||[]).push(p); });
+            insts = [];
+            Object.keys(byType).forEach(t=>{
+              byType[t].sort((a,b)=>{
+                const ai = a.breakoutIdx!=null?a.breakoutIdx:a.formedIdx;
+                const bi = b.breakoutIdx!=null?b.breakoutIdx:b.formedIdx;
+                return bi-ai; // most recent first
+              });
+              insts.push(...byType[t].slice(0, CAP_PER_TYPE));
+            });
             perTF[mode]=insts;
             allPatternsFlat.push(...insts);
           });

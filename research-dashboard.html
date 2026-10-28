@@ -28,7 +28,7 @@
   select{background:var(--panel-2);border:1px solid var(--line);color:var(--ink);padding:8px 10px;border-radius:6px;font-size:13px;}
   label{font-size:12px;color:var(--ink-dim);}
 
-  .tabs{display:flex;gap:6px;margin-bottom:14px;}
+  .tabs{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;}
   .tab-btn{background:var(--panel-2);border:1px solid var(--line);color:var(--ink-dim);padding:7px 14px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;}
   .tab-btn.active{background:var(--saffron);color:#1a1206;border-color:var(--saffron);}
 
@@ -74,14 +74,33 @@
   .progress-label{font-family:var(--mono);font-size:11px;color:var(--ink-dim);margin-top:6px;}
   .log{font-family:var(--mono);font-size:11px;color:var(--ink-dim);max-height:70px;overflow-y:auto;margin-top:8px;}
   .empty{color:var(--ink-dim);font-size:13px;padding:24px 0;text-align:center;}
-  .screener-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;}
-  .screener-tile{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:18px;text-decoration:none;display:block;transition:border-color .15s,transform .15s;}
-  .screener-tile:hover{border-color:var(--saffron);transform:translateY(-1px);}
-  .screener-tile h4{margin:0 0 6px;font-size:15px;color:var(--ink);}
-  .screener-tile p{margin:0;font-size:12px;color:var(--ink-dim);line-height:1.5;}
-  .screener-tile .go{display:inline-block;margin-top:10px;font-family:var(--mono);font-size:11px;color:var(--saffron);}
   .foot-note{color:var(--ink-dim);font-size:11px;line-height:1.6;margin-top:20px;border-top:1px solid var(--line);padding-top:14px;}
   .data-stamp{font-family:var(--mono);font-size:11px;color:var(--ink-dim);}
+  th.sortable{cursor:pointer;user-select:none;white-space:nowrap;}
+  th.sortable:hover{color:var(--ink);}
+  th.sortable .arrow{display:inline-block;width:10px;color:var(--saffron);}
+  .pager{display:flex;gap:10px;align-items:center;justify-content:flex-end;margin-top:12px;font-family:var(--mono);font-size:12px;color:var(--ink-dim);}
+  .pager button{padding:6px 12px;font-size:12px;}
+  .badge.buy{background:rgba(53,197,143,.18);color:var(--green);}
+  .badge.sell{background:rgba(239,91,107,.18);color:var(--red);}
+  .tr-table td, .tr-table th{padding:7px 10px;}
+  .badge.warn{background:rgba(255,159,67,.22);color:var(--saffron);}
+  .star-btn{background:transparent;border:1px solid var(--line);color:var(--saffron);padding:3px 10px;border-radius:14px;font-size:12px;font-weight:600;cursor:pointer;margin-left:6px;vertical-align:middle;}
+  .star-btn.on{background:rgba(255,159,67,.15);}
+  td.star-cell{cursor:pointer;color:var(--saffron);text-align:center;width:28px;}
+  .link-btn{background:transparent;border:1px solid var(--line);color:var(--ink-dim);padding:3px 10px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;}
+  .link-btn:hover{color:var(--ink);border-color:var(--saffron);}
+  .sym-link{cursor:pointer;border-bottom:1px dotted var(--ink-dim);}
+  .chk{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--ink);cursor:pointer;}
+  .chk input{accent-color:var(--saffron);}
+  .calc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:10px;}
+  .calc-grid label{display:block;margin-bottom:3px;}
+  .calc-grid input{width:100%;}
+  .calc-out{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px;}
+  .calc-out .ev-stat .val{font-size:15px;}
+  .minus-btn{background:transparent;border:none;color:var(--ink-dim);cursor:pointer;font-size:15px;}
+  .minus-btn:hover{color:var(--red);}
+  .msg{font-size:12px;color:var(--ink-dim);}
 
   #marketContextBar{display:flex;gap:18px;flex-wrap:wrap;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 18px;margin-bottom:18px;}
   .mc-item{display:flex;flex-direction:column;}
@@ -142,11 +161,30 @@
         <div class="tab-btn active" id="tabTopPicks">Top Picks</div>
         <div class="tab-btn" id="tabByStock">Research a stock</div>
         <div class="tab-btn" id="tabByPattern">Filter by pattern</div>
-        <div class="tab-btn" id="tabScreeners">Live screeners</div>
+        <div class="tab-btn" id="tabWatchlist">Watchlist</div>
+        <div class="tab-btn" id="tabTracker">Pick tracker</div>
+        <div class="tab-btn" id="tabLeaderboard">Pattern leaderboard</div>
       </div>
 
       <div id="viewTopPicks">
+        <div class="controls-row">
+          <label>Signal</label>
+          <select id="picksSignalFilter">
+            <option value="ALL" selected>Buy &amp; Sell</option>
+            <option value="BUY">Buy only (bullish)</option>
+            <option value="SELL">Sell only (bearish)</option>
+          </select>
+          <label class="chk"><input type="checkbox" id="picksWatchOnly"> Watchlist only</label>
+          <label>Capital ₹</label>
+          <input type="number" id="calcCapital" style="width:110px;" min="0" step="10000">
+          <label>Risk / trade %</label>
+          <input type="number" id="calcRisk" style="width:70px;" min="0" step="0.25">
+          <button class="secondary" id="picksTrackBtn">＋ Track these picks</button>
+          <button class="secondary" id="picksExportBtn">⬇ Export CSV</button>
+        </div>
+        <div class="msg" id="picksMsg" style="margin-bottom:8px;"></div>
         <div id="topPicksWrap"></div>
+        <div id="trackRecordWrap"></div>
       </div>
 
       <div id="viewByStock" style="display:none;">
@@ -173,34 +211,78 @@
             <option value="candidate">Still forming</option>
             <option value="all">All</option>
           </select>
+          <label>Signal</label>
+          <select id="patSignalFilter">
+            <option value="ALL" selected>Buy &amp; Sell</option>
+            <option value="BUY">Buy only</option>
+            <option value="SELL">Sell only</option>
+          </select>
+          <label>Rows / page</label>
+          <select id="pageSizeSel">
+            <option value="25">25</option>
+            <option value="50" selected>50</option>
+            <option value="100">100</option>
+          </select>
+          <label class="chk"><input type="checkbox" id="patWatchOnly"> Watchlist only</label>
           <button class="secondary" id="patSelectAll">Select all patterns</button>
           <button class="secondary" id="patSelectNone">Clear</button>
+          <button class="secondary" id="patExportBtn">⬇ Export CSV</button>
         </div>
         <div id="patternCheckboxes" class="pattern-checks"></div>
         <div id="patternTableWrap"></div>
+        <div id="patternPager" class="pager"></div>
       </div>
 
-      <div id="viewScreeners" style="display:none;">
-        <p style="color:var(--ink-dim);font-size:12px;">
-          Chartink blocks iframe embedding on their end, so these open in a new tab rather than embedding inline &mdash;
-          still one click, still live, still refreshes automatically on their side. Add
-          "latest market capitalization &gt; 3000" in each screener's query editor (open it, click Edit Query)
-          to apply your cap filter permanently, once per screener.
-        </p>
+      <div id="viewWatchlist" style="display:none;">
         <div class="controls-row">
-          <label>Quick chart lookup (any NSE symbol, no data file needed)</label>
-          <input type="text" id="quickChartSymbol" placeholder="e.g. RELIANCE" style="width:160px;">
-          <button class="secondary" id="quickChartBtn">Show chart</button>
+          <label>Add stock</label>
+          <input type="text" id="watchInput" list="watchSymbols" placeholder="e.g. RELIANCE" style="width:180px;">
+          <datalist id="watchSymbols"></datalist>
+          <button id="watchAddBtn">Add</button>
+          <span class="msg" id="watchMsg"></span>
         </div>
-        <div id="quickChartContainer" style="height:500px;margin-bottom:20px;border:1px solid var(--line);border-radius:8px;overflow:hidden;display:none;"></div>
+        <div id="watchlistWrap"></div>
+      </div>
 
-        <div id="screenerGrid" class="screener-grid"></div>
+      <div id="viewTracker" style="display:none;">
+        <div class="controls-row">
+          <label class="chk"><input type="checkbox" id="autoTrackChk" checked> Auto-track each day's top 15 picks</label>
+          <button class="secondary" id="trackerExportBtn">⬇ Export CSV</button>
+          <button class="secondary" id="trackerClearBtn">Clear all</button>
+        </div>
+        <div id="trackerWrap"></div>
+      </div>
+
+      <div id="viewLeaderboard" style="display:none;">
+        <div class="controls-row">
+          <label>Timeframe</label>
+          <select id="lbTf">
+            <option value="ALL" selected>All</option>
+            <option value="D">Daily</option>
+            <option value="W">Weekly</option>
+            <option value="M">Monthly</option>
+          </select>
+          <label>Signal</label>
+          <select id="lbSig">
+            <option value="ALL" selected>Buy &amp; Sell</option>
+            <option value="BUY">Buy</option>
+            <option value="SELL">Sell</option>
+          </select>
+          <label>Min signals</label>
+          <select id="lbMin">
+            <option value="10">10</option>
+            <option value="20" selected>20</option>
+            <option value="30">30</option>
+            <option value="50">50</option>
+          </select>
+        </div>
+        <div id="leaderboardWrap"></div>
       </div>
     </div>
   </div>
 
   <div class="foot-note" id="footNote" style="display:none;">
-    Heuristic swing-pivot pattern detection, not a certified charting engine or investment advice &mdash; I'm not a licensed advisor. "Retest" checks whether price revisited the breakout level within a timeframe-scaled window; "support held" checks it didn't close back through that level in the following few sessions. "Successful/Failed" outcome is based on the 30-trading-day forward return relative to breakout direction, so very recent breakouts show "In Progress" until that window completes. Historical evidence stats aggregate every instance found across your loaded universe and history depth &mdash; small n means a rougher estimate, shown next to each stat. Target/Stop-loss use each pattern's own measured-move geometry where one exists, falling back to an ATR-based estimate otherwise (reversals, volume/OBV signals) -- these are mechanical projections, not guarantees; always sanity-check against the chart. The Top Picks conviction score is a weighted blend of recency, volume, relative strength, fundamentals, historical pattern success rate, and risk-reward -- it's a shortlist to start research from, not a buy signal. Accumulation/Distribution flag OBV-vs-price divergence over a rolling window and can lag real sentiment shifts. To keep the page responsive, at most the 8 most recent instances per stock/timeframe/pattern-type are kept -- "Occurrences" in Historical Evidence reflects that capped sample, not every instance in the full loaded history, which matters most for the frequently-firing Accumulation/Distribution/Volume Breakout signals. Data is a static snapshot from your last script run; see the script for scheduling it to refresh automatically each day.
+    Heuristic swing-pivot pattern detection, not a certified charting engine or investment advice &mdash; I'm not a licensed advisor. "Retest" checks whether price revisited the breakout level within a timeframe-scaled window; "support held" checks it didn't close back through that level in the following few sessions. "Successful/Failed" outcome is based on the 30-trading-day forward return relative to breakout direction, so very recent breakouts show "In Progress" until that window completes. Historical evidence stats aggregate every instance found across your loaded universe and history depth &mdash; small n means a rougher estimate, shown next to each stat. Target/Stop-loss use each pattern's own measured-move geometry where one exists, falling back to an ATR-based estimate otherwise (reversals, volume/OBV signals) -- these are mechanical projections, not guarantees; always sanity-check against the chart. The Top Picks conviction score is a weighted blend of recency, volume, relative strength, fundamentals, historical pattern success rate, and risk-reward -- it's a shortlist to start research from, not a buy signal. Accumulation/Distribution flag OBV-vs-price divergence over a rolling window and can lag real sentiment shifts. BUY/SELL labels show the direction of the pattern signal (bullish/bearish) &mdash; they are not personalised advice; "WATCH" marks a pattern that is still forming. Watchlist, tracked picks and sizing settings are saved in this browser only (localStorage) &mdash; they don't sync across devices, and a different address/port counts as a different browser. Results / ex-dividend dates come from Yahoo and are patchy or estimated for many Indian stocks &mdash; verify before relying on them. The position-size calculator is plain arithmetic on the numbers you enter, not advice. To keep the page responsive, at most the 8 most recent instances per stock/timeframe/pattern-type are kept -- "Occurrences" in Historical Evidence reflects that capped sample, not every instance in the full loaded history, which matters most for the frequently-firing Accumulation/Distribution/Volume Breakout signals. Data is a static snapshot from your last script run; see the script for scheduling it to refresh automatically each day.
   </div>
 </div>
 
@@ -212,6 +294,20 @@
   let stockPatterns = {}; // symbol -> {D:[...],W:[...],M:[...]} evaluated instances
   let allPatternsFlat = []; // for cross-stock aggregation & pattern browsing
   let marketContext = {nifty:null, vix:null, niftyReturn1m:null, niftyReturn3m:null};
+
+  // ---- personal data lives in this browser's localStorage (watchlist, tracked picks, sizing settings) ----
+  const LS = {
+    get(k, fb){ try{ const v = window.localStorage.getItem(k); return v==null ? fb : JSON.parse(v); }catch(e){ return fb; } },
+    set(k, v){ try{ window.localStorage.setItem(k, JSON.stringify(v)); return true; }catch(e){ return false; } }
+  };
+  const WATCH_KEY = 'nifty_watchlist_v1', TRACK_KEY = 'nifty_pick_tracker_v1', AUTO_KEY = 'nifty_autotrack_v1', CALC_KEY = 'nifty_calc_v1';
+  let watchlist = LS.get(WATCH_KEY, []);
+  let tracked = LS.get(TRACK_KEY, []);
+  let autoTrack = LS.get(AUTO_KEY, true);
+  let calcSettings = Object.assign({capital:500000, riskPct:1}, LS.get(CALC_KEY, {}));
+  let leaderCache = null;
+  let currentPicks = {};   // pick id -> {p, score} for the cards currently shown
+  let shownPicks = [];     // the cards currently shown, in rank order (for CSV export)
 
   const PATTERN_TYPES = ["Head & Shoulders","Inverse H&S","Double Top","Double Bottom","Rectangle Breakout","Cup & Handle","Symmetrical Triangle","Reversal (Bottom)","Reversal (Top)","Volume Breakout","Accumulation","Distribution"];
   const DIR = {
@@ -630,6 +726,15 @@
             const cfg = TF_CONFIG[mode];
             let insts = detectAll(tf,cfg).map(p=>evaluateInstance(p,tf,daily,cfg));
             insts.forEach(p=>{ p.symbol=sym; p.timeframe=mode; });
+            // drop exact duplicates (same pattern type, same formation bar, same breakout bar) --
+            // e.g. Cup & Handle can be found via several left-rim candidates for one handle
+            const seenKeys = {};
+            insts = insts.filter(p=>{
+              const k = p.type+'|'+p.formedIdx+'|'+p.breakoutIdx;
+              if (seenKeys[k]) return false;
+              seenKeys[k] = true;
+              return true;
+            });
             // cap instances kept per (stock, timeframe, pattern type) to the most recent few --
             // some detectors (Accumulation/Distribution, Volume Breakout) can fire many times
             // across 4 years of history, and without this cap the full-universe total can reach
@@ -902,6 +1007,7 @@
       const result = await runPatternWorker(universe);
       stockPatterns = result.stockPatterns;
       allPatternsFlat = result.allPatternsFlat;
+      trackBase = null; leaderCache = null; // invalidate cached analytics
       // the worker's structured-clone round trip turns Date fields back into real Date objects
       // automatically, but breakoutDate/formedDate on each pattern need no further handling here.
     }catch(err){
@@ -979,8 +1085,381 @@
     `;
   }
 
+  // ============================================================
+  // Personal tools: watchlist, pick tracker, position sizing, event warnings, CSV, leaderboard
+  // ============================================================
+  function isoDate(d){ return d ? d.toISOString().slice(0,10) : null; }       // for data dates (UTC midnight)
+  function localISO(d){ const p=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()); }
+  function fmtINR(n){ return (n==null||isNaN(n)) ? '—' : '₹'+Math.round(n).toLocaleString('en-IN'); }
+  function fmtPrice(n){ return (n==null||isNaN(n)) ? '—' : '₹'+n.toFixed(2); }
+  function pickId(p){ return p.symbol+'|'+p.type+'|'+isoDate(p.breakoutDate); }
+
+  function sortItems(items, col, dir){
+    const mul = dir==='asc' ? 1 : -1;
+    const dec = items.map(it=>({it, v: col.val(it)}));
+    const isNull = v=> v==null || (typeof v==='number' && isNaN(v));
+    dec.sort((a,b)=>{
+      const an = isNull(a.v), bn = isNull(b.v);
+      if (an && bn) return 0;
+      if (an) return 1;
+      if (bn) return -1;
+      if (col.text) return String(a.v).localeCompare(String(b.v))*mul;
+      return (a.v-b.v)*mul;
+    });
+    return dec.map(d=>d.it);
+  }
+
+  function csvCell(v){ if (v==null) return ''; const s=String(v); return /[",\n\r]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s; }
+  function downloadCSV(filename, header, rows){
+    const text = [header].concat(rows).map(r=>r.map(csvCell).join(',')).join('\n');
+    const blob = new Blob(['\ufeff'+text], {type:'text/csv;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click();
+    setTimeout(()=>{ if (a.remove) a.remove(); if (URL.revokeObjectURL) URL.revokeObjectURL(url); }, 0);
+  }
+
+  function openStock(sym){
+    document.getElementById('tabByStock').click();
+    document.getElementById('stockSelect').value = sym;
+    renderStockDetail(sym);
+  }
+
+  // ---- watchlist ----
+  function isWatched(sym){ return watchlist.indexOf(sym)>=0; }
+  function toggleWatch(sym){
+    const i = watchlist.indexOf(sym);
+    if (i>=0) watchlist.splice(i,1); else watchlist.push(sym);
+    LS.set(WATCH_KEY, watchlist);
+    updateStarButton();
+    renderTopPicks();
+    renderPatternTable();
+    renderWatchlist();
+  }
+  function updateStarButton(){
+    const b = document.getElementById('watchToggle');
+    if (!b) return;
+    const on = isWatched(b.dataset.sym);
+    b.textContent = on ? '★ Watching' : '☆ Watch';
+    if (b.classList) b.classList.toggle('on', on);
+  }
+
+  // ---- upcoming results / ex-dividend dates (as reported by Yahoo; patchy for Indian stocks) ----
+  function upcomingEvents(sym){
+    const ev = (rawData[sym] && rawData[sym].events) || {};
+    const today = new Date(); today.setHours(0,0,0,0);
+    const out = [];
+    const pick = (label, vals)=>{
+      const ds = (Array.isArray(vals)?vals:[vals]).filter(Boolean)
+        .map(s=>({s, d:new Date(s+'T00:00:00')}))
+        .filter(x=>!isNaN(x.d.getTime()) && x.d>=today)
+        .sort((a,b)=>a.d-b.d);
+      if (ds.length) out.push({label, iso:ds[0].s, days:Math.round((ds[0].d-today)/86400000)});
+    };
+    pick('Results', ev.earnings);
+    pick('Ex-dividend', ev.exDividend);
+    return out;
+  }
+  function eventBadges(sym){
+    return upcomingEvents(sym).filter(e=>e.days<=14).map(e=>{
+      const when = e.days===0 ? 'today' : 'in '+e.days+'d';
+      return e.label==='Results'
+        ? `<span class="badge warn" title="Results expected ${e.iso} (Yahoo estimate - verify). A breakout into results can gap either way.">⚠ Results ${when}</span>`
+        : `<span class="badge neutral" title="Ex-dividend ${e.iso}: the price typically drops by about the dividend on this date.">Ex-div ${when}</span>`;
+    }).join(' ');
+  }
+  function nextResultsISO(sym){ const r = upcomingEvents(sym).find(e=>e.label==='Results'); return r ? r.iso : ''; }
+
+  // ---- position sizing ----
+  function computeSizing(capital, riskPct, entry, stop, target){
+    if (!(capital>0 && riskPct>0 && entry>0 && stop>0)) return null;
+    const perShare = Math.abs(entry-stop);
+    if (!(perShare>0)) return null;
+    const riskBudget = capital*riskPct/100;
+    let qty = Math.floor(riskBudget/perShare), capped = false;
+    const maxQty = Math.floor(capital/entry);
+    if (qty>maxQty){ qty = maxQty; capped = true; }
+    const hasT = target>0;
+    return {riskBudget, perShare, qty, capped, posVal:qty*entry, pctCap:qty*entry/capital*100, maxLoss:qty*perShare,
+            reward: hasT ? qty*Math.abs(target-entry) : null, rr: hasT ? Math.abs(target-entry)/perShare : null};
+  }
+  // how a pick looks from today's price rather than from the breakout close
+  function pickPlanNow(p, last){
+    const sig = signalOf(p);
+    if (sig==='BUY'){ if (last<=p.stop) return {invalid:'Stop already breached'}; if (last>=p.target) return {invalid:'Target already reached'}; }
+    else            { if (last>=p.stop) return {invalid:'Stop already breached'}; if (last<=p.target) return {invalid:'Target already reached'}; }
+    return {rrNow: Math.abs(p.target-last)/Math.abs(last-p.stop), sz: computeSizing(calcSettings.capital, calcSettings.riskPct, last, p.stop, p.target)};
+  }
+
+  // ---- pick tracker (forward test: save picks now, see later whether target or stop was hit) ----
+  function trackEntries(list){
+    const have = new Set(tracked.map(t=>t.id));
+    let added = 0;
+    list.forEach(({p,score})=>{
+      const id = pickId(p);
+      if (have.has(id)) return;
+      const sig = signalOf(p);
+      if (sig==='—' || p.breakoutPrice==null || p.target==null || p.stop==null) return;
+      tracked.push({id, symbol:p.symbol, type:p.type, signal:sig, breakoutDate:isoDate(p.breakoutDate),
+                    entry:p.breakoutPrice, target:p.target, stop:p.stop, score:Math.round(score), savedOn:localISO(new Date())});
+      have.add(id); added++;
+    });
+    if (added){
+      if (tracked.length>5000) tracked = tracked.slice(-5000);
+      LS.set(TRACK_KEY, tracked);
+    }
+    return added;
+  }
+  function evaluateTracked(t){
+    const d = rawData[t.symbol];
+    if (!d) return {status:'No data', cls:'nopattern', ret:null, sessions:null, date:null};
+    const want = Date.parse(t.breakoutDate); // 'YYYY-MM-DD' -> UTC midnight, same as the data dates
+    let idx = -1;
+    for (let k=d.dates.length-1; k>=0; k--){ const tm = d.dates[k].getTime(); if (tm===want){ idx=k; break; } if (tm<want) break; }
+    if (idx<0) return {status:'No data', cls:'nopattern', ret:null, sessions:null, date:null};
+    const sign = t.signal==='BUY' ? 1 : -1;
+    const last = d.close.length-1;
+    const end = Math.min(last, idx+30);
+    for (let k=idx+1; k<=end; k++){
+      const hitT = sign>0 ? d.high[k]>=t.target : d.low[k]<=t.target;
+      const hitS = sign>0 ? d.low[k]<=t.stop    : d.high[k]>=t.stop;
+      if (hitS) return {status:'Stopped',    cls:'failed',     sessions:k-idx, date:d.dates[k], ret:(t.stop-t.entry)/t.entry*100*sign};
+      if (hitT) return {status:'Target hit',  cls:'successful', sessions:k-idx, date:d.dates[k], ret:(t.target-t.entry)/t.entry*100*sign};
+    }
+    if (last>=idx+30) return {status:'Expired (30d)', cls:'neutral', sessions:30, date:d.dates[idx+30], ret:(d.close[idx+30]-t.entry)/t.entry*100*sign};
+    return {status:'Open', cls:'progress', sessions:last-idx, date:d.dates[last], ret:(d.close[last]-t.entry)/t.entry*100*sign};
+  }
+  function trackerRows(){
+    return tracked.map(t=>({t, ev:evaluateTracked(t)}))
+      .sort((a,b)=> (b.t.savedOn.localeCompare(a.t.savedOn)) || (b.t.score-a.t.score));
+  }
+  function renderTracker(){
+    const wrap = document.getElementById('trackerWrap');
+    document.getElementById('autoTrackChk').checked = !!autoTrack;
+    if (!tracked.length){
+      wrap.innerHTML = `<div class="empty">Nothing tracked yet. With auto-track on, each day's top 15 picks are saved here automatically when you open Top Picks; you can also press "＋ Track these picks" or "＋ Track" on any card. Come back after a few weeks to see how they played out.</div>`;
+      return;
+    }
+    const rows = trackerRows();
+    const done = rows.filter(r=>['Target hit','Stopped','Expired (30d)'].includes(r.ev.status));
+    const cnt = s=>done.filter(r=>r.ev.status===s).length;
+    const pct = n=> done.length ? (n/done.length*100).toFixed(0)+'%' : '—';
+    const rets = done.map(r=>r.ev.ret);
+    const open = rows.filter(r=>r.ev.status==='Open').length;
+    const note = done.length<20 ? `<p class="msg">Only ${done.length} resolved so far &mdash; too early to read much into these percentages. Results firm up as more picks reach their 30-session window.</p>` : '';
+    const CAP = 200;
+    wrap.innerHTML = `
+      <div class="evidence-grid">
+        <div class="ev-stat"><div class="lbl">Tracked picks</div><div class="val">${rows.length.toLocaleString()}</div></div>
+        <div class="ev-stat"><div class="lbl">Resolved / open</div><div class="val">${done.length} / ${open}</div></div>
+        <div class="ev-stat"><div class="lbl">Target hit</div><div class="val pos">${pct(cnt('Target hit'))}</div></div>
+        <div class="ev-stat"><div class="lbl">Stopped out</div><div class="val neg">${pct(cnt('Stopped'))}</div></div>
+        <div class="ev-stat"><div class="lbl">Expired (no hit in 30d)</div><div class="val">${pct(cnt('Expired (30d)'))}</div></div>
+        <div class="ev-stat"><div class="lbl">Median result</div><div class="val ${pctClass(median(rets))}">${rets.length?fmtPct(median(rets)):'—'}</div></div>
+      </div>
+      ${note}
+      <table>
+        <thead><tr><th>Saved</th><th>Stock</th><th>Signal</th><th>Pattern</th><th>Breakout</th><th>Entry</th><th>Target</th><th>Stop</th><th>Score</th><th>Status</th><th>Sessions</th><th>Return</th><th></th></tr></thead>
+        <tbody>${rows.slice(0,CAP).map(({t,ev})=>`
+          <tr>
+            <td>${t.savedOn}</td>
+            <td><span class="sym-link" data-open="${t.symbol}">${t.symbol}</span></td>
+            <td><span class="badge ${t.signal==='BUY'?'buy':'sell'}">${t.signal}</span></td>
+            <td>${t.type}</td>
+            <td>${t.breakoutDate}</td>
+            <td>${fmtPrice(t.entry)}</td>
+            <td>${fmtPrice(t.target)}</td>
+            <td>${fmtPrice(t.stop)}</td>
+            <td>${t.score}</td>
+            <td><span class="badge ${ev.cls}">${ev.status}</span></td>
+            <td>${ev.sessions==null?'—':ev.sessions}</td>
+            <td class="${pctClass(ev.ret)}">${fmtPct(ev.ret)}</td>
+            <td><button class="minus-btn" data-remove="${t.id}" title="Stop tracking">×</button></td>
+          </tr>`).join('')}</tbody>
+      </table>
+      ${rows.length>CAP ? `<p class="msg">Showing the ${CAP} most recent of ${rows.length}. Export CSV for the full list.</p>` : ''}
+      <p class="msg" style="line-height:1.6;">Tracked picks are stored in this browser only (clearing site data or switching browser/port loses them). Entry = breakout-day close; target/stop checked against daily highs/lows over the next 30 sessions (stop assumed first if both are touched the same day); "Open" returns use the latest close. Returns are direction-adjusted: positive = the signal was right.</p>`;
+  }
+
+  // ---- pattern leaderboard ----
+  const LB_COLS = [
+    {key:'type',       label:'Pattern',          val:r=>r.type, text:true},
+    {key:'tf',         label:'TF',               val:r=>r.tf, text:true},
+    {key:'sig',        label:'Signal',           val:r=>r.sig, text:true},
+    {key:'n',          label:'Signals',          val:r=>r.n},
+    {key:'winRate',    label:'Win rate (30d)',   val:r=>r.winRate},
+    {key:'med',        label:'Median 30d return',val:r=>r.med},
+    {key:'avg',        label:'Avg 30d return',   val:r=>r.avg},
+    {key:'retestRate', label:'Retest rate',      val:r=>r.retestRate},
+    {key:'holdRate',   label:'Retest hold rate', val:r=>r.holdRate}
+  ];
+  let lbSort = {key:'med', dir:'desc'};
+  function buildLeaderboard(){
+    const groups = {};
+    allPatternsFlat.forEach(p=>{
+      if (p.breakoutIdx==null || !p.forward || p.forward.r30==null) return;
+      const sig = signalOf(p); if (sig==='—') return;
+      const sign = sig==='BUY' ? 1 : -1;
+      const key = p.type+'|'+p.timeframe+'|'+sig;
+      const g = groups[key] || (groups[key] = {type:p.type, tf:p.timeframe, sig, n:0, wins:0, rets:[], retest:0, held:0});
+      const adj = p.forward.r30*sign;
+      g.n++; if (adj>1) g.wins++; g.rets.push(adj);
+      if (p.retest){ g.retest++; if (p.supportHeld) g.held++; }
+    });
+    return Object.values(groups).map(g=>({
+      type:g.type, tf:g.tf, sig:g.sig, n:g.n,
+      winRate:g.wins/g.n*100, med:median(g.rets), avg:g.rets.reduce((a,b)=>a+b,0)/g.n,
+      retestRate:g.retest/g.n*100, holdRate: g.retest ? g.held/g.retest*100 : null
+    }));
+  }
+  function renderLeaderboard(){
+    const wrap = document.getElementById('leaderboardWrap');
+    if (!allPatternsFlat.length){ wrap.innerHTML = '<div class="empty">Load data to see which patterns have worked best.</div>'; return; }
+    if (!leaderCache) leaderCache = buildLeaderboard();
+    const tf = document.getElementById('lbTf').value, sig = document.getElementById('lbSig').value;
+    const minN = parseInt(document.getElementById('lbMin').value,10) || 20;
+    const all = leaderCache.filter(r=>(tf==='ALL'||r.tf===tf) && (sig==='ALL'||r.sig===sig));
+    let rows = all.filter(r=>r.n>=minN);
+    const hidden = all.length-rows.length;
+    if (!rows.length){ wrap.innerHTML = `<div class="empty">No pattern/timeframe combination has at least ${minN} resolved signals${all.length?` (${all.length} combination${all.length===1?'':'s'} hidden) &mdash; lower "Min signals" above`:''}.</div>`; return; }
+    const col = LB_COLS.find(c=>c.key===lbSort.key) || LB_COLS[5];
+    rows = sortItems(rows, col, lbSort.dir);
+    wrap.innerHTML = `
+      <table>
+        <thead><tr><th>#</th>${LB_COLS.map(c=>`<th class="sortable" data-key="${c.key}">${c.label}<span class="arrow">${lbSort.key===c.key?(lbSort.dir==='asc'?'▲':'▼'):''}</span></th>`).join('')}</tr></thead>
+        <tbody>${rows.map((r,i)=>`
+          <tr>
+            <td>${i+1}</td>
+            <td>${r.type}</td>
+            <td>${r.tf}</td>
+            <td><span class="badge ${r.sig==='BUY'?'buy':'sell'}">${r.sig}</span></td>
+            <td>${r.n.toLocaleString()}</td>
+            <td class="${r.winRate>=55?'pos':r.winRate<45?'neg':''}">${r.winRate.toFixed(0)}%</td>
+            <td class="${pctClass(r.med)}">${fmtPct(r.med)}</td>
+            <td class="${pctClass(r.avg)}">${fmtPct(r.avg)}</td>
+            <td>${r.retestRate.toFixed(0)}%</td>
+            <td>${r.holdRate==null?'—':r.holdRate.toFixed(0)+'%'}</td>
+          </tr>`).join('')}</tbody>
+      </table>
+      <p class="msg" style="line-height:1.6;margin-top:8px;">${hidden?`${hidden} combination${hidden===1?'':'s'} hidden for having fewer than ${minN} signals. `:''}Returns are direction-adjusted (positive = the signal was right); "win" = a move of more than 1% in the signal's direction after 30 sessions. Based on the most recent 8 instances per stock/pattern/timeframe in your loaded universe, so treat it as a rough ranking, not proof &mdash; patterns that fire in clusters (e.g. during one market-wide move) can look better or worse than they really are.</p>`;
+  }
+
+  // ---- watchlist view ----
+  function renderWatchlist(){
+    const wrap = document.getElementById('watchlistWrap');
+    if (!wrap) return;
+    if (!watchlist.length){
+      wrap.innerHTML = `<div class="empty">Your watchlist is empty. Add stocks with the ☆ on any stock page, Top Picks card or pattern-table row, or type a symbol above.</div>`;
+      return;
+    }
+    const rows = watchlist.map(sym=>{
+      const d = rawData[sym];
+      if (!d) return `<tr><td>${sym}</td><td colspan="9" class="msg">Not in the loaded data file</td><td><button class="minus-btn" data-unwatch="${sym}" title="Remove">×</button></td></tr>`;
+      const last = d.close[d.close.length-1], prev = d.close[d.close.length-2];
+      const chg = prev ? (last-prev)/prev*100 : null;
+      const trend = overallTrend(d.close,50,200);
+      const perTF = stockPatterns[sym];
+      const cur = perTF ? mostRecentPattern(perTF.D) : null;
+      const lv = nearestLevels(d, 120);
+      const f = universe[sym] ? computeFundamentals(sym) : null;
+      const patCell = cur
+        ? `${cur.type} ${signalBadge(cur)} <span class="msg">${cur.breakoutIdx!=null?fmtDate(cur.breakoutDate):'forming'}</span>`
+        : (universe[sym] ? '<span class="msg">none recent</span>' : '<span class="msg">below market-cap filter</span>');
+      return `<tr>
+        <td><span class="sym-link" data-open="${sym}">${sym}</span> ${eventBadges(sym)}</td>
+        <td>${fmtPrice(last)}</td>
+        <td class="${pctClass(chg)}">${fmtPct(chg)}</td>
+        <td><span class="badge ${trend.cls}">${trend.label}</span></td>
+        <td class="${pctClass(d.rs1m)}">${fmtPct(d.rs1m)}</td>
+        <td>${patCell}</td>
+        <td>${fmtPrice(lv.support)}</td>
+        <td>${fmtPrice(lv.resistance)}</td>
+        <td>${f?`<span class="badge ${f.overallCls}">${f.overallLabel}</span>`:'—'}</td>
+        <td></td>
+        <td><button class="minus-btn" data-unwatch="${sym}" title="Remove from watchlist">×</button></td>
+      </tr>`;
+    }).join('');
+    wrap.innerHTML = `<table>
+      <thead><tr><th>Stock</th><th>Price</th><th>1d</th><th>Daily trend</th><th>RS vs Nifty (1m)</th><th>Latest daily pattern</th><th>Support</th><th>Resistance</th><th>Fundamentals</th><th></th><th></th></tr></thead>
+      <tbody>${rows}</tbody></table>`;
+  }
+
+  // ---- position size calculator (stock page) ----
+  function renderCalculator(curD, levels, last){
+    const wrap = document.getElementById('calcWrap');
+    if (!wrap) return;
+    const confirmed = curD && curD.breakoutIdx!=null && curD.stop!=null && curD.target!=null;
+    const def = confirmed
+      ? {entry:last, stop:curD.stop, target:curD.target, note:`Stop and target prefilled from the ${curD.type} setup (${signalOf(curD)}); entry is today's price.`}
+      : {entry:last, stop:levels.support, target:levels.resistance, note:'No confirmed daily setup, so stop/target are prefilled with the nearest support/resistance (assumes a long trade). Edit freely.'};
+    wrap.innerHTML = `
+      <h2 style="margin-top:22px;">Position size calculator</h2>
+      <div class="calc-grid">
+        <div><label>Capital (₹)</label><input type="number" id="cCapital" min="0" step="10000"></div>
+        <div><label>Risk per trade (%)</label><input type="number" id="cRisk" min="0" step="0.25"></div>
+        <div><label>Entry (₹)</label><input type="number" id="cEntry" min="0" step="0.05"></div>
+        <div><label>Stop-loss (₹)</label><input type="number" id="cStop" min="0" step="0.05"></div>
+        <div><label>Target (₹, optional)</label><input type="number" id="cTarget" min="0" step="0.05"></div>
+      </div>
+      <div class="msg" style="margin-bottom:10px;">${def.note}</div>
+      <div class="calc-out" id="calcOut"></div>`;
+    const el = id=>document.getElementById(id);
+    el('cCapital').value = calcSettings.capital;
+    el('cRisk').value = calcSettings.riskPct;
+    el('cEntry').value = def.entry!=null ? def.entry.toFixed(2) : '';
+    el('cStop').value = def.stop!=null ? def.stop.toFixed(2) : '';
+    el('cTarget').value = def.target!=null ? def.target.toFixed(2) : '';
+    const update = ()=>{
+      const capital = parseFloat(el('cCapital').value), riskPct = parseFloat(el('cRisk').value);
+      const entry = parseFloat(el('cEntry').value), stop = parseFloat(el('cStop').value), target = parseFloat(el('cTarget').value);
+      if (capital>0) calcSettings.capital = capital;
+      if (riskPct>0) calcSettings.riskPct = riskPct;
+      LS.set(CALC_KEY, calcSettings);
+      const out = el('calcOut');
+      const res = computeSizing(capital, riskPct, entry, stop, isNaN(target)?null:target);
+      if (!res){ out.innerHTML = '<div class="msg">Enter capital, risk %, entry and a stop-loss that differs from entry.</div>'; return; }
+      const tile = (l,v,extra)=>`<div class="ev-stat"><div class="lbl">${l}</div><div class="val">${v}</div>${extra?`<div class="msg">${extra}</div>`:''}</div>`;
+      const sameSide = (!isNaN(target) && target>0) && ((target-entry)*(stop-entry) > 0);
+      out.innerHTML =
+        tile('Quantity', res.qty.toLocaleString('en-IN')+' shares', res.capped ? 'capped by your capital (risk budget would allow more)' : '') +
+        tile('Position value', fmtINR(res.posVal), res.pctCap.toFixed(0)+'% of capital') +
+        tile('Risk budget', fmtINR(res.riskBudget), calcSettings.riskPct+'% of capital') +
+        tile('Max loss if stopped', fmtINR(res.maxLoss), fmtPrice(res.perShare)+' per share') +
+        (res.reward!=null ? tile('Reward at target', fmtINR(res.reward), 'reward : risk = '+res.rr.toFixed(2)+' : 1') : '') +
+        (sameSide ? '<div class="msg" style="grid-column:1/-1;color:var(--saffron);">Stop and target are on the same side of entry &mdash; check the inputs.</div>' : '');
+      // keep the Top Picks sizing inputs in sync
+      const tc = document.getElementById('calcCapital'), tr = document.getElementById('calcRisk');
+      if (tc) tc.value = calcSettings.capital; if (tr) tr.value = calcSettings.riskPct;
+    };
+    ['cCapital','cRisk','cEntry','cStop','cTarget'].forEach(id=>el(id).addEventListener('input', update));
+    update();
+  }
+
+  // ---------- Buy / Sell signal helpers ----------
+  // BUY = bullish setup (price expected to rise), SELL = bearish setup (price expected to fall).
+  // Confirmed breakouts show BUY/SELL; patterns still forming show WATCH with a direction arrow.
+  function signalOf(p){
+    if (p.target!=null && p.breakoutPrice!=null){
+      if (p.target>p.breakoutPrice) return 'BUY';
+      if (p.target<p.breakoutPrice) return 'SELL';
+    }
+    if (p.dir==='bullish') return 'BUY';
+    if (p.dir==='bearish') return 'SELL';
+    return '—';
+  }
+  function signalBadge(p){
+    const s = signalOf(p);
+    if (s==='—') return '<span class="badge nopattern">—</span>';
+    if (p.breakoutIdx!=null) return `<span class="badge ${s==='BUY'?'buy':'sell'}">${s}</span>`;
+    return `<span class="badge candidate" title="Pattern still forming - not yet a confirmed breakout">WATCH ${s==='BUY'?'↑':'↓'}</span>`;
+  }
+
   // ---------- Top Picks digest ----------
+  function clamp100(x){ return Math.max(0, Math.min(100, x)); }
+
   function convictionScore(p, sym){
+    const isSell = signalOf(p)==='SELL';
     let score = 0, maxScore = 0;
     // 1. recency -- a breakout from a while ago is a stale "top pick"
     const recencyBars = p.dailyIdx!=null ? (universe[sym].close.length-1-p.dailyIdx) : 999;
@@ -988,55 +1467,205 @@
     score += recencyScore*0.20; maxScore += 100*0.20;
     // 2. volume confirmation (candidates here are always timeframe==='D')
     const vr = volumeRatio(universe[sym], p.breakoutIdx, 20);
-    const volScore = vr==null?40: Math.max(0,Math.min(100, 40+vr));
+    const volScore = vr==null?40: clamp100(40+vr);
     score += volScore*0.15; maxScore += 100*0.15;
-    // 3. relative strength vs Nifty
-    const rs = universe[sym].rs1m;
-    const rsScore = rs==null?40: Math.max(0,Math.min(100, 50+rs*3));
+    // 3. relative strength vs Nifty (for a SELL setup, weakness vs the index is what you want)
+    let rs = universe[sym].rs1m;
+    if (rs!=null && isSell) rs = -rs;
+    const rsScore = rs==null?40: clamp100(50+rs*3);
     score += rsScore*0.20; maxScore += 100*0.20;
-    // 4. fundamentals
+    // 4. fundamentals (for a SELL setup, weaker fundamentals support the signal)
     const {overall} = computeFundamentals(sym);
-    score += (overall==null?40:overall)*0.20; maxScore += 100*0.20;
+    const fundScore = overall==null ? 40 : (isSell ? 100-overall : overall);
+    score += fundScore*0.20; maxScore += 100*0.20;
     // 5. historical success rate of this pattern+timeframe
     const agg = aggregate(p.type, p.timeframe);
     const histScore = agg.successRate==null?50:agg.successRate;
     score += histScore*0.15; maxScore += 100*0.15;
     // 6. risk-reward
-    const rrScore = p.riskReward==null?40:Math.max(0,Math.min(100, p.riskReward*33));
+    const rrScore = p.riskReward==null?40: clamp100(p.riskReward*33);
     score += rrScore*0.10; maxScore += 100*0.10;
     return maxScore ? (score/maxScore*100) : 0;
   }
 
   function renderTopPicks(){
     const wrap = document.getElementById('topPicksWrap');
-    if (!Object.keys(universe).length){ wrap.innerHTML = '<div class="empty">Load data to see today\'s top picks.</div>'; return; }
+    const msg = document.getElementById('picksMsg');
+    if (!Object.keys(universe).length){
+      wrap.innerHTML = '<div class="empty">Load data to see today\'s top picks.</div>';
+      document.getElementById('trackRecordWrap').innerHTML = '';
+      return;
+    }
+    const sigF = document.getElementById('picksSignalFilter').value; // ALL | BUY | SELL
+    const watchOnly = document.getElementById('picksWatchOnly').checked;
+    const capEl = document.getElementById('calcCapital'), riskEl = document.getElementById('calcRisk');
+    if (capEl && document.activeElement!==capEl) capEl.value = calcSettings.capital;
+    if (riskEl && document.activeElement!==riskEl) riskEl.value = calcSettings.riskPct;
+
     const candidates = allPatternsFlat.filter(p=>{
       if (p.timeframe!=='D' || p.breakoutIdx==null) return false;
-      const recencyBars = universe[p.symbol].close.length-1-p.dailyIdx;
-      return recencyBars<=10; // only genuinely recent breakouts count as "today's" picks
+      return universe[p.symbol].close.length-1-p.dailyIdx <= 10; // only genuinely recent breakouts count as "today's" picks
     });
-    const scored = candidates.map(p=>({p, score: convictionScore(p, p.symbol)}));
-    scored.sort((a,b)=>b.score-a.score);
-    const top = scored.slice(0,15);
-    if (!top.length){ wrap.innerHTML = '<div class="empty">No confirmed breakouts in the last 10 sessions across your loaded universe. Check back tomorrow, or browse "Filter by pattern" for forming setups.</div>'; return; }
-    wrap.innerHTML = `<p style="color:var(--ink-dim);font-size:12px;">Top ${top.length} recent breakouts (daily, last 10 sessions), ranked by a composite score: recency + volume confirmation + relative strength vs Nifty + fundamentals + this pattern's historical success rate + risk-reward. Not a recommendation to buy -- a shortlist to start your own research from.</p>` +
-      top.map(({p,score})=>{
-        const mc = universe[p.symbol].marketCapCr;
-        return `
-        <div class="pick-card">
-          <div class="pick-top">
-            <h4>${p.symbol} <span style="font-weight:400;font-size:12px;color:var(--ink-dim);">${p.type}</span></h4>
-            <div class="pick-score">${score.toFixed(0)}</div>
-          </div>
-          <div class="pick-meta">Breakout ${fmtDate(p.breakoutDate)} @ ₹${p.breakoutPrice.toFixed(2)} &middot; mcap ₹${mc?mc.toLocaleString():'—'} Cr &middot; RS(1m) ${fmtPct(universe[p.symbol].rs1m)}</div>
-          <div class="pick-grid">
-            <div><div class="k">Target</div>${p.target?'₹'+p.target.toFixed(2):'—'}</div>
-            <div><div class="k">Stop</div>${p.stop?'₹'+p.stop.toFixed(2):'—'}</div>
-            <div><div class="k">R:R</div>${p.riskReward?p.riskReward.toFixed(2):'—'}</div>
-            <div><div class="k">10d / 20d / 30d</div><span class="${pctClass(p.forward.r10)}">${fmtPct(p.forward.r10)}</span> / <span class="${pctClass(p.forward.r20)}">${fmtPct(p.forward.r20)}</span> / <span class="${pctClass(p.forward.r30)}">${fmtPct(p.forward.r30)}</span></div>
-          </div>
-        </div>`;
-      }).join('');
+    const scoredAll = candidates.map(p=>({p, score: convictionScore(p, p.symbol)}));
+    scoredAll.sort((a,b)=>b.score-a.score);
+
+    // auto-track the canonical top 15 (whole universe, both directions), whatever filters are showing
+    let autoMsg = '';
+    if (autoTrack){
+      const n = trackEntries(scoredAll.slice(0,15));
+      if (n) autoMsg = `Auto-tracked ${n} new pick${n===1?'':'s'} &mdash; see the Pick tracker tab. `;
+    }
+
+    const top = scoredAll.filter(({p})=> (sigF==='ALL' || signalOf(p)===sigF) && (!watchOnly || isWatched(p.symbol))).slice(0,15);
+    shownPicks = top; currentPicks = {};
+    top.forEach(x=>{ currentPicks[pickId(x.p)] = x; });
+    const trackedIds = new Set(tracked.map(t=>t.id));
+    if (msg) msg.innerHTML = autoMsg;
+
+    if (!top.length){
+      wrap.innerHTML = `<div class="empty">${watchOnly ? 'None of your watchlist stocks have a confirmed breakout in the last 10 sessions.' : 'No confirmed breakouts in the last 10 sessions for this selection. Check back tomorrow, or browse "Filter by pattern" for forming setups.'}</div>`;
+    } else {
+      wrap.innerHTML = `<p style="color:var(--ink-dim);font-size:12px;">Top ${top.length} recent breakouts (daily, last 10 sessions), ranked by a composite score: recency + volume confirmation + relative strength vs Nifty + fundamentals + this pattern's historical success rate + risk-reward. BUY = bullish setup, SELL = bearish setup (for a delivery-only investor, SELL means avoid / consider exiting; actually shorting needs F&amp;O). "R:R now" and "Qty" are worked out from today's price, not the breakout close. A shortlist to start your own research from &mdash; not a recommendation.</p>` +
+        top.map(({p,score})=>{
+          const d = universe[p.symbol];
+          const last = d.close[d.close.length-1];
+          const mc = d.marketCapCr;
+          const plan = pickPlanNow(p, last);
+          const id = pickId(p);
+          const qtyCell = plan.invalid ? `<span style="color:var(--saffron);">${plan.invalid}</span>`
+            : (plan.sz ? `${plan.sz.qty.toLocaleString('en-IN')} <span class="msg">(${fmtINR(plan.sz.posVal)})</span>` : '—');
+          return `
+          <div class="pick-card">
+            <div class="pick-top">
+              <h4><span class="sym-link" data-open="${p.symbol}">${p.symbol}</span> ${signalBadge(p)} ${eventBadges(p.symbol)} <span style="font-weight:400;font-size:12px;color:var(--ink-dim);">${p.type}</span></h4>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <button class="star-btn ${isWatched(p.symbol)?'on':''}" data-star="${p.symbol}" title="Add/remove from watchlist">${isWatched(p.symbol)?'★':'☆'}</button>
+                <button class="link-btn" data-track="${id}" ${trackedIds.has(id)?'disabled':''}>${trackedIds.has(id)?'✓ Tracked':'＋ Track'}</button>
+                <div class="pick-score" title="Conviction score (0-100)">${score.toFixed(0)}</div>
+              </div>
+            </div>
+            <div class="pick-meta">Breakout ${fmtDate(p.breakoutDate)} @ ₹${p.breakoutPrice.toFixed(2)} &middot; now ₹${last.toFixed(2)} &middot; mcap ₹${mc?mc.toLocaleString():'—'} Cr &middot; RS(1m) ${fmtPct(d.rs1m)}</div>
+            <div class="pick-grid">
+              <div><div class="k">Signal</div>${signalOf(p)}</div>
+              <div><div class="k">Target</div>${p.target?'₹'+p.target.toFixed(2):'—'}</div>
+              <div><div class="k">Stop</div>${p.stop?'₹'+p.stop.toFixed(2):'—'}</div>
+              <div><div class="k">R:R</div>${p.riskReward?p.riskReward.toFixed(2):'—'}</div>
+              <div><div class="k">R:R now</div>${plan.rrNow!=null?plan.rrNow.toFixed(2):'—'}</div>
+              <div><div class="k">Qty (₹${(calcSettings.capital/1e5).toFixed(calcSettings.capital%1e5?1:0)}L @ ${calcSettings.riskPct}%)</div>${qtyCell}</div>
+              <div><div class="k">10d / 20d / 30d</div><span class="${pctClass(p.forward.r10)}">${fmtPct(p.forward.r10)}</span> / <span class="${pctClass(p.forward.r20)}">${fmtPct(p.forward.r20)}</span> / <span class="${pctClass(p.forward.r30)}">${fmtPct(p.forward.r30)}</span></div>
+            </div>
+          </div>`;
+        }).join('');
+    }
+    renderTrackRecord(sigF);
+  }
+
+  // ---------- Top Picks track record (point-in-time historical backtest) ----------
+  // For every past daily breakout in the loaded history that has a full 30-session window after it,
+  // rebuild a "setup score" using only information that existed on the breakout day (volume vs average,
+  // relative strength vs Nifty, risk-reward), then see what actually happened: did price touch the
+  // target or the stop first within 30 sessions? Fundamentals and the pattern's own success rate are
+  // left out of this score because we only hold today's snapshot of them (using them would leak the future).
+  let trackBase = null;
+  function buildTrackBase(){
+    const nifty = rawData['_NIFTY_INDEX'];
+    const nTimes = nifty ? nifty.dates.map(d=>d.getTime()) : [];
+    const niftyIdxAt = (t)=>{ // last Nifty bar on or before time t
+      let lo=0, hi=nTimes.length-1, ans=-1;
+      while (lo<=hi){ const mid=(lo+hi)>>1; if (nTimes[mid]<=t){ ans=mid; lo=mid+1; } else hi=mid-1; }
+      return ans;
+    };
+    const out = [];
+    allPatternsFlat.forEach(p=>{
+      if (p.timeframe!=='D' || p.breakoutIdx==null || p.target==null || p.stop==null || p.breakoutPrice==null) return;
+      const d = universe[p.symbol]; if (!d) return;
+      const i = p.breakoutIdx;
+      if (i<21 || i+30>=d.close.length) return; // need a full 30-session window to judge the outcome
+      const sig = signalOf(p);
+      if (sig==='—') return;
+      const bp = p.breakoutPrice;
+      // sanity: BUY needs stop < price < target, SELL needs target < price < stop
+      if (sig==='BUY' && !(p.stop<bp && bp<p.target)) return;
+      if (sig==='SELL' && !(p.target<bp && bp<p.stop)) return;
+      const sign = sig==='BUY' ? 1 : -1;
+
+      const vr = volumeRatio(d, i, 20);
+      let rs = null;
+      if (nifty){
+        const ni = niftyIdxAt(d.dates[i].getTime()), nj = niftyIdxAt(d.dates[i-21].getTime());
+        if (ni>=0 && nj>=0 && nj<ni){
+          const sr = (d.close[i]-d.close[i-21])/d.close[i-21]*100;
+          const nr = (nifty.close[ni]-nifty.close[nj])/nifty.close[nj]*100;
+          rs = sr-nr;
+        }
+      }
+      const volScore = vr==null?40: clamp100(40+vr);
+      const rsScore = rs==null?40: clamp100(50+sign*rs*3);
+      const rrScore = p.riskReward==null?40: clamp100(p.riskReward*33);
+      const score = (volScore*0.15 + rsScore*0.20 + rrScore*0.10)/0.45;
+
+      let result = 'Neither';
+      for (let k=i+1; k<=i+30; k++){
+        const hitTarget = sig==='BUY' ? d.high[k]>=p.target : d.low[k]<=p.target;
+        const hitStop   = sig==='BUY' ? d.low[k]<=p.stop    : d.high[k]>=p.stop;
+        if (hitStop){ result='Stopped'; break; }   // if both happen the same day, assume the stop hit first (conservative)
+        if (hitTarget){ result='Target'; break; }
+      }
+      const r30 = (d.close[i+30]-bp)/bp*100*sign; // direction-adjusted: positive = the signal was right
+      out.push({score, sig, result, r30});
+    });
+    return out;
+  }
+
+  function renderTrackRecord(sigF){
+    const wrap = document.getElementById('trackRecordWrap');
+    if (!trackBase) trackBase = buildTrackBase();
+    const rows = trackBase.filter(r=> sigF==='ALL' || r.sig===sigF);
+    const heading = '<h2 style="margin-top:26px;">Track record &mdash; how have setups like these actually played out?</h2>';
+    if (rows.length < 30){
+      wrap.innerHTML = heading + `<div class="empty">Only ${rows.length} resolved historical setups for this selection in the loaded data &mdash; too few for a meaningful track record.</div>`;
+      return;
+    }
+    const sorted = rows.slice().sort((a,b)=>b.score-a.score);
+    const third = Math.floor(sorted.length/3);
+    const tiers = [
+      {label:'Top third (highest score)', items:sorted.slice(0,third)},
+      {label:'Middle third', items:sorted.slice(third,2*third)},
+      {label:'Bottom third (lowest score)', items:sorted.slice(2*third)},
+      {label:'All setups', items:sorted}
+    ];
+    const stat = items=>{
+      const n = items.length;
+      const pct = k=> items.filter(r=>r.result===k).length/n*100;
+      const rets = items.map(r=>r.r30);
+      return {n, target:pct('Target'), stopped:pct('Stopped'), neither:pct('Neither'),
+              med: median(rets), avg: rets.reduce((a,b)=>a+b,0)/n,
+              lo: items[items.length-1].score, hi: items[0].score};
+    };
+    const st = tiers.map(t=>({label:t.label, ...stat(t.items)}));
+    const diff = st[0].target - st[2].target;
+    const verdict = diff>=5
+      ? `In this sample, top-third setups reached their target first <strong>${st[0].target.toFixed(0)}%</strong> of the time versus <strong>${st[2].target.toFixed(0)}%</strong> for the bottom third &mdash; the ranking has shown some edge.`
+      : `In this sample, top-third setups reached their target first <strong>${st[0].target.toFixed(0)}%</strong> of the time versus <strong>${st[2].target.toFixed(0)}%</strong> for the bottom third &mdash; no meaningful edge from the score yet, so don't lean on the ranking alone.`;
+    wrap.innerHTML = heading + `
+      <p style="color:var(--ink-dim);font-size:12px;">${verdict}</p>
+      <table class="tr-table">
+        <thead><tr><th>Score tier</th><th>Score range</th><th>Setups</th><th>Target hit first</th><th>Stopped first</th><th>Neither (30d)</th><th>Median 30d return</th><th>Avg 30d return</th></tr></thead>
+        <tbody>${st.map(s=>`
+          <tr>
+            <td>${s.label}</td>
+            <td>${s.lo.toFixed(0)}–${s.hi.toFixed(0)}</td>
+            <td>${s.n.toLocaleString()}</td>
+            <td class="pos">${s.target.toFixed(0)}%</td>
+            <td class="neg">${s.stopped.toFixed(0)}%</td>
+            <td>${s.neither.toFixed(0)}%</td>
+            <td class="${pctClass(s.med)}">${fmtPct(s.med)}</td>
+            <td class="${pctClass(s.avg)}">${fmtPct(s.avg)}</td>
+          </tr>`).join('')}</tbody>
+      </table>
+      <div style="color:var(--ink-dim);font-size:11px;line-height:1.6;margin-top:8px;">
+        Method: every daily breakout in the loaded history with a full 30-session window after it, entered at the breakout close; "target/stop first" uses daily highs/lows (if both are touched the same day, the stop is assumed first); returns are direction-adjusted (positive = the signal was right). Setups are ranked by a point-in-time score (volume vs average, relative strength vs Nifty, risk-reward) &mdash; fundamentals and pattern success rate are excluded because only today's snapshot of them exists. Caveats: sample is the most recent 8 instances per stock/pattern, signals overlap in time (not independent), current index constituents only (survivorship bias), and no brokerage/slippage/taxes. Past results don't predict future ones.
+      </div>`;
   }
 
   function renderStockDetail(sym){
@@ -1067,14 +1696,15 @@
 
     const volRatio = curD ? volumeRatio(daily, curD.breakoutIdx, 20) : null;
     const levels = nearestLevels(daily, 120);
+    const nextRes = upcomingEvents(sym).find(e=>e.label==='Results');
     const keyLevelRow = curD && curD.level
       ? `<div class="kv"><span class="k">${curD.levelType==='support'?'Support being tested':'Resistance being tested'}</span><span class="v">₹${curD.level.toFixed(2)} (${(((last-curD.level)/curD.level)*100).toFixed(1)}% away)</span></div>`
       : '';
 
     wrap.innerHTML = `
       <div class="stock-head">
-        <h3>${sym}</h3>
-        <span class="sub">₹${last.toFixed(2)} &middot; mcap ₹${daily.marketCapCr?daily.marketCapCr.toLocaleString():'—'} Cr &middot; RS vs Nifty (1m/3m): <span class="${pctClass(daily.rs1m)}">${fmtPct(daily.rs1m)}</span> / <span class="${pctClass(daily.rs3m)}">${fmtPct(daily.rs3m)}</span> &middot; avg daily turnover ₹${daily.avgDailyTurnoverCr?daily.avgDailyTurnoverCr.toFixed(1):'—'} Cr &middot; ${fmtDate(daily.dates[daily.dates.length-1])}</span>
+        <h3>${sym} <button class="star-btn ${isWatched(sym)?'on':''}" id="watchToggle" data-sym="${sym}">${isWatched(sym)?'★ Watching':'☆ Watch'}</button> ${eventBadges(sym)}</h3>
+        <span class="sub">₹${last.toFixed(2)} &middot; mcap ₹${daily.marketCapCr?daily.marketCapCr.toLocaleString():'—'} Cr &middot; RS vs Nifty (1m/3m): <span class="${pctClass(daily.rs1m)}">${fmtPct(daily.rs1m)}</span> / <span class="${pctClass(daily.rs3m)}">${fmtPct(daily.rs3m)}</span> &middot; avg daily turnover ₹${daily.avgDailyTurnoverCr?daily.avgDailyTurnoverCr.toFixed(1):'—'} Cr &middot; ${fmtDate(daily.dates[daily.dates.length-1])}${nextRes?` &middot; next results ${nextRes.iso} (${nextRes.days}d, Yahoo estimate)`:''}</span>
       </div>
       <div id="tvChartContainer" style="height:500px;margin-bottom:18px;border:1px solid var(--line);border-radius:8px;overflow:hidden;"></div>
       <div class="tf-grid">
@@ -1111,11 +1741,14 @@
           <div class="kv"><span class="k">Status</span><span class="v"><span class="badge ${stM.cls}">${stM.label}</span></span></div>
         </div>
       </div>
+      <div id="calcWrap"></div>
       <div id="fundamentalsWrap"></div>
       <div id="evidenceWrap"></div>
       <div id="stockAllPatternsWrap" style="margin-top:16px;"></div>
     `;
 
+    document.getElementById('watchToggle').onclick = ()=>toggleWatch(sym);
+    renderCalculator(curD, levels, last);
     document.getElementById('fundamentalsWrap').innerHTML = renderFundamentals(sym);
 
     renderEvidenceAndHistory(sym, curD, perTF);
@@ -1227,41 +1860,74 @@
     `;
   }
 
-  // ---------- render: pattern browse ----------
+  // ---------- render: pattern browse (sortable + paginated) ----------
   function selectedPatternTypes(){
     return Array.from(document.querySelectorAll('#patternCheckboxes input:checked')).map(cb=>cb.value);
   }
 
-  function renderPatternTable(){
+  const PAT_COLS = [
+    {key:'watch',    label:'★',         val:p=>isWatched(p.symbol)?1:0},
+    {key:'stock',    label:'Stock',     val:p=>p.symbol, text:true},
+    {key:'mcap',     label:'Mcap (Cr)', val:p=>universe[p.symbol] ? universe[p.symbol].marketCapCr : null},
+    {key:'pattern',  label:'Pattern',   val:p=>p.type, text:true},
+    {key:'tf',       label:'TF',        val:p=>p.timeframe, text:true},
+    {key:'signal',   label:'Signal',    val:p=>signalOf(p), text:true},
+    {key:'status',   label:'Status',    val:p=>p.breakoutIdx!=null?1:0},
+    {key:'breakout', label:'Breakout',  val:p=>{ const d = p.breakoutIdx!=null ? p.breakoutDate : p.formedDate; return d ? d.getTime() : null; }},
+    {key:'target',   label:'Target',    val:p=>p.target},
+    {key:'stop',     label:'Stop',      val:p=>p.stop},
+    {key:'rr',       label:'R:R',       val:p=>p.riskReward},
+    {key:'r30',      label:'30d',       val:p=>p.forward.r30},
+    {key:'outcome',  label:'Outcome',   val:p=>p.outcome, text:true}
+  ];
+  let patSort = {key:'breakout', dir:'desc'};
+  let patPage = 1;
+  let patTotalPages = 1;
+
+  // all rows matching the current filters, in the current sort order (the table shows one page of this; CSV export uses all of it)
+  function getPatternRows(){
     const types = selectedPatternTypes();
+    if (!types.length) return [];
     const tf = document.getElementById('timeframeSelect').value; // 'ALL' | 'D' | 'W' | 'M'
     const statusF = document.getElementById('statusFilterSel').value;
-    const wrap = document.getElementById('patternTableWrap');
-    if (!types.length){ wrap.innerHTML = `<div class="empty">Select at least one pattern above.</div>`; return; }
+    const sigF = document.getElementById('patSignalFilter').value;
+    const watchOnly = document.getElementById('patWatchOnly').checked;
     let insts = allPatternsFlat.filter(p=> types.includes(p.type) && (tf==='ALL' || p.timeframe===tf));
     if (statusF==='confirmed') insts = insts.filter(p=>p.breakoutIdx!=null);
     if (statusF==='candidate') insts = insts.filter(p=>p.breakoutIdx==null);
-    insts.sort((a,b)=>{
-      const ai=a.breakoutIdx!=null?a.breakoutIdx+100000:a.formedIdx;
-      const bi=b.breakoutIdx!=null?b.breakoutIdx+100000:b.formedIdx;
-      return bi-ai;
-    });
-    if (!insts.length){ wrap.innerHTML = `<div class="empty">No matching instances in the loaded universe for this selection.</div>`; return; }
-    const totalCount = insts.length;
-    const RENDER_CAP = 300; // rendering more than this at once is what was freezing the page
-    const truncated = totalCount > RENDER_CAP;
-    insts = insts.slice(0, RENDER_CAP);
-    const showTFCol = tf==='ALL';
-    wrap.innerHTML = (truncated ? `<p style="color:var(--ink-dim);font-size:12px;">Showing the ${RENDER_CAP} most recent of ${totalCount.toLocaleString()} matches &mdash; narrow the pattern/timeframe/status filters above to see a more specific set.</p>` : '') + `<table>
-      <thead><tr><th>Stock</th><th>Mcap (Cr)</th><th>Pattern</th>${showTFCol?'<th>TF</th>':''}<th>Status</th><th>Breakout</th><th>Target</th><th>Stop</th><th>R:R</th><th>30d</th><th>Outcome</th></tr></thead>
-      <tbody>${insts.map(p=>{
+    if (sigF!=='ALL') insts = insts.filter(p=>signalOf(p)===sigF);
+    if (watchOnly) insts = insts.filter(p=>isWatched(p.symbol));
+    const col = PAT_COLS.find(c=>c.key===patSort.key) || PAT_COLS[7];
+    return sortItems(insts, col, patSort.dir);
+  }
+
+  function renderPatternTable(){
+    const pageSize = parseInt(document.getElementById('pageSizeSel').value,10) || 50;
+    const wrap = document.getElementById('patternTableWrap');
+    const pager = document.getElementById('patternPager');
+    if (!selectedPatternTypes().length){ wrap.innerHTML = `<div class="empty">Select at least one pattern above.</div>`; pager.innerHTML=''; return; }
+    const insts = getPatternRows();
+    if (!insts.length){ wrap.innerHTML = `<div class="empty">No matching instances in the loaded universe for this selection.</div>`; pager.innerHTML=''; return; }
+
+    const total = insts.length;
+    patTotalPages = Math.max(1, Math.ceil(total/pageSize));
+    if (patPage>patTotalPages) patPage = patTotalPages;
+    if (patPage<1) patPage = 1;
+    const startIdx = (patPage-1)*pageSize;
+    const pageItems = insts.slice(startIdx, startIdx+pageSize);
+
+    wrap.innerHTML = `<table>
+      <thead><tr>${PAT_COLS.map(c=>`<th class="sortable" data-key="${c.key}">${c.label}<span class="arrow">${patSort.key===c.key ? (patSort.dir==='asc'?'▲':'▼') : ''}</span></th>`).join('')}</tr></thead>
+      <tbody>${pageItems.map(p=>{
         const st = statusLabel(p.timeframe,p);
         const mc = universe[p.symbol] && universe[p.symbol].marketCapCr;
         return `<tr class="clickable" data-sym="${p.symbol}">
-          <td>${p.symbol}</td>
+          <td class="star-cell" data-star="${p.symbol}" title="Add/remove from watchlist">${isWatched(p.symbol)?'★':'☆'}</td>
+          <td>${p.symbol} ${eventBadges(p.symbol)}</td>
           <td>${mc?mc.toLocaleString():'—'}</td>
           <td>${p.type}</td>
-          ${showTFCol?`<td>${p.timeframe}</td>`:''}
+          <td>${p.timeframe}</td>
+          <td>${signalBadge(p)}</td>
           <td><span class="badge ${st.cls}">${st.label}</span></td>
           <td>${p.breakoutIdx!=null?fmtDate(p.breakoutDate):'—'}</td>
           <td>${p.target?'₹'+p.target.toFixed(2):'—'}</td>
@@ -1272,13 +1938,15 @@
         </tr>`;
       }).join('')}</tbody>
     </table>`;
-    wrap.querySelectorAll('tr.clickable').forEach(tr=>{
-      tr.addEventListener('click', ()=>{
-        document.getElementById('tabByStock').click();
-        document.getElementById('stockSelect').value = tr.dataset.sym;
-        renderStockDetail(tr.dataset.sym);
-      });
-    });
+
+    const first = startIdx+1, last = startIdx+pageItems.length;
+    pager.innerHTML = `
+      <span>Showing ${first.toLocaleString()}–${last.toLocaleString()} of ${total.toLocaleString()}</span>
+      <button class="secondary" data-page="first" ${patPage===1?'disabled':''}>« First</button>
+      <button class="secondary" data-page="prev" ${patPage===1?'disabled':''}>‹ Prev</button>
+      <span>Page ${patPage} / ${patTotalPages}</span>
+      <button class="secondary" data-page="next" ${patPage===patTotalPages?'disabled':''}>Next ›</button>
+      <button class="secondary" data-page="last" ${patPage===patTotalPages?'disabled':''}>Last »</button>`;
   }
 
   // ---------- selectors ----------
@@ -1291,6 +1959,7 @@
       stockSel.appendChild(o);
     });
     document.getElementById('universeCount').textContent = `${Object.keys(universe).length} stocks in universe`;
+    document.getElementById('watchSymbols').innerHTML = Object.keys(rawData).filter(s=>!s.startsWith('_')).sort().map(s=>`<option value="${s}">`).join('');
     stockSel.onchange = ()=>renderStockDetail(stockSel.value);
     if (Object.keys(universe).length) renderStockDetail(stockSel.value);
 
@@ -1298,25 +1967,59 @@
     if (!checksWrap.dataset.filled){
       checksWrap.innerHTML = PATTERN_TYPES.map(t=>`<label><input type="checkbox" value="${t}" checked> ${t}</label>`).join('');
       checksWrap.dataset.filled='1';
-      checksWrap.addEventListener('change', renderPatternTable);
+      const rerender = ()=>{ patPage = 1; renderPatternTable(); };
+      checksWrap.addEventListener('change', rerender);
       document.getElementById('patSelectAll').addEventListener('click', ()=>{
-        checksWrap.querySelectorAll('input').forEach(cb=>cb.checked=true); renderPatternTable();
+        checksWrap.querySelectorAll('input').forEach(cb=>cb.checked=true); rerender();
       });
       document.getElementById('patSelectNone').addEventListener('click', ()=>{
-        checksWrap.querySelectorAll('input').forEach(cb=>cb.checked=false); renderPatternTable();
+        checksWrap.querySelectorAll('input').forEach(cb=>cb.checked=false); rerender();
       });
-      document.getElementById('timeframeSelect').onchange = renderPatternTable;
-      document.getElementById('statusFilterSel').onchange = renderPatternTable;
+      ['timeframeSelect','statusFilterSel','patSignalFilter','pageSizeSel','patWatchOnly'].forEach(id=>{
+        document.getElementById(id).onchange = rerender;
+      });
+
+      // one delegated click handler for the watch star, sortable headers and row clicks
+      document.getElementById('patternTableWrap').addEventListener('click', (e)=>{
+        const star = e.target.closest('[data-star]');
+        if (star){ toggleWatch(star.dataset.star); return; }
+        const th = e.target.closest('th.sortable');
+        if (th){
+          const k = th.dataset.key;
+          if (patSort.key===k) patSort.dir = patSort.dir==='asc' ? 'desc' : 'asc';
+          else {
+            const colDef = PAT_COLS.find(c=>c.key===k);
+            patSort = {key:k, dir: colDef && colDef.text ? 'asc' : 'desc'};
+          }
+          patPage = 1;
+          renderPatternTable();
+          return;
+        }
+        const tr = e.target.closest('tr.clickable');
+        if (tr) openStock(tr.dataset.sym);
+      });
+      document.getElementById('patternPager').addEventListener('click', (e)=>{
+        const b = e.target.closest('button[data-page]');
+        if (!b || b.disabled) return;
+        const act = b.dataset.page;
+        if (act==='first') patPage = 1;
+        else if (act==='prev') patPage = Math.max(1, patPage-1);
+        else if (act==='next') patPage = Math.min(patTotalPages, patPage+1);
+        else if (act==='last') patPage = patTotalPages;
+        renderPatternTable();
+      });
     }
     renderPatternTable();
   }
 
   // ---------- tabs ----------
   const TABS = [
-    {btn:'tabTopPicks', view:'viewTopPicks', onShow: renderTopPicks},
-    {btn:'tabByStock', view:'viewByStock'},
-    {btn:'tabByPattern', view:'viewByPattern'},
-    {btn:'tabScreeners', view:'viewScreeners', onShow: populateScreenerGrid}
+    {btn:'tabTopPicks',    view:'viewTopPicks',    onShow: renderTopPicks},
+    {btn:'tabByStock',     view:'viewByStock'},
+    {btn:'tabByPattern',   view:'viewByPattern'},
+    {btn:'tabWatchlist',   view:'viewWatchlist',   onShow: renderWatchlist},
+    {btn:'tabTracker',     view:'viewTracker',     onShow: renderTracker},
+    {btn:'tabLeaderboard', view:'viewLeaderboard', onShow: renderLeaderboard}
   ];
   TABS.forEach(t=>{
     document.getElementById(t.btn).addEventListener('click', ()=>{
@@ -1328,53 +2031,108 @@
     });
   });
 
-  // ---------- live screener grid (Chartink -- link tiles, since they block iframe embedding) ----------
-  const SCREENERS = [
-    {name:"Head & Shoulders", url:"https://chartink.com/screener/head-and-shoulders-buy", desc:"Bearish reversal breakouts below the neckline."},
-    {name:"Inverse Head & Shoulders", url:"https://chartink.com/screener/inverted-head-and-shoulders-1", desc:"Bullish reversal breakouts above the neckline."},
-    {name:"Rectangle / Triangular Breakout", url:"https://chartink.com/screener/triangular-breakout", desc:"Stocks breaking out of a sideways range."},
-    {name:"Ascending Triangle", url:"https://chartink.com/screener/ascending-triangle-screener", desc:"Flat resistance, rising support -- bullish continuation setup."},
-    {name:"Rounding Bottom Breakout", url:"https://chartink.com/screener/rounding-bottom-breakout", desc:"Stocks emerging from a rounded base."},
-    {name:"Cup & Handle Breakout", url:"https://chartink.com/screener/cup-handle-breakout-pattern", desc:"Classic bullish continuation breakout."},
-    {name:"Double Bottom Breakout", url:"https://chartink.com/screener/double-bottom-breakout", desc:"Bullish reversal off a retested support level."}
-  ];
-  let screenerGridBuilt = false;
-  function populateScreenerGrid(){
-    if (screenerGridBuilt) return;
-    const grid = document.getElementById('screenerGrid');
-    grid.innerHTML = SCREENERS.map(s=>`
-      <a class="screener-tile" href="${s.url}" target="_blank" rel="noopener">
-        <h4>${s.name}</h4>
-        <p>${s.desc}</p>
-        <span class="go">Open live screener ↗</span>
-      </a>
-    `).join('');
-    screenerGridBuilt = true;
-  }
-
-  // ---------- standalone quick chart (no data file required) ----------
-  document.getElementById('quickChartBtn').addEventListener('click', ()=>{
-    const sym = document.getElementById('quickChartSymbol').value.trim().toUpperCase();
-    if (!sym) return;
-    const container = document.getElementById('quickChartContainer');
-    container.style.display='block';
-    container.innerHTML = '<div class="empty">Loading chart…</div>';
-    const innerId = 'tvq_' + sym.replace(/[^A-Za-z0-9]/g,'');
-    ensureTVScript(()=>{
-      container.innerHTML='';
-      const div = document.createElement('div'); div.id=innerId; div.style.height='500px';
-      container.appendChild(div);
-      new TradingView.widget({
-        autosize:true, symbol:"NSE:"+sym, interval:"D", timezone:"Asia/Kolkata",
-        theme:"dark", style:"1", locale:"in", toolbar_bg:"#161d28",
-        enable_publishing:false, withdateranges:true, hide_side_toolbar:false,
-        studies:["MASimple@tv-basicstudies","Volume@tv-basicstudies","RSI@tv-basicstudies"],
-        container_id: innerId
-      });
-    });
+  // ---------- Top Picks controls ----------
+  document.getElementById('picksSignalFilter').addEventListener('change', renderTopPicks);
+  document.getElementById('picksWatchOnly').addEventListener('change', renderTopPicks);
+  const onSizingInput = ()=>{
+    const cap = parseFloat(document.getElementById('calcCapital').value), risk = parseFloat(document.getElementById('calcRisk').value);
+    if (cap>0) calcSettings.capital = cap;
+    if (risk>0) calcSettings.riskPct = risk;
+    LS.set(CALC_KEY, calcSettings);
+    renderTopPicks();
+  };
+  document.getElementById('calcCapital').addEventListener('change', onSizingInput);
+  document.getElementById('calcRisk').addEventListener('change', onSizingInput);
+  document.getElementById('picksTrackBtn').addEventListener('click', ()=>{
+    const n = trackEntries(shownPicks);
+    document.getElementById('picksMsg').innerHTML = n ? `Tracked ${n} new pick${n===1?'':'s'} &mdash; see the Pick tracker tab.` : 'Those picks are already being tracked.';
+    renderTopPicks();
   });
-  document.getElementById('quickChartSymbol').addEventListener('keydown', (e)=>{
-    if (e.key==='Enter') document.getElementById('quickChartBtn').click();
+  document.getElementById('picksExportBtn').addEventListener('click', ()=>{
+    const header = ['Rank','Stock','Signal','Pattern','Score','Breakout date','Entry (breakout close)','Current price','Target','Stop','R:R','R:R now','Qty','Position value','Next results'];
+    const rows = shownPicks.map(({p,score},i)=>{
+      const d = universe[p.symbol], last = d.close[d.close.length-1], plan = pickPlanNow(p, last);
+      return [i+1, p.symbol, signalOf(p), p.type, score.toFixed(0), isoDate(p.breakoutDate), p.breakoutPrice.toFixed(2), last.toFixed(2),
+              p.target.toFixed(2), p.stop.toFixed(2), p.riskReward?p.riskReward.toFixed(2):'', plan.rrNow!=null?plan.rrNow.toFixed(2):'',
+              plan.sz?plan.sz.qty:'', plan.sz?Math.round(plan.sz.posVal):'', nextResultsISO(p.symbol)];
+    });
+    downloadCSV('top_picks_'+localISO(new Date())+'.csv', header, rows);
+  });
+  document.getElementById('topPicksWrap').addEventListener('click', (e)=>{
+    const star = e.target.closest('[data-star]');
+    if (star){ toggleWatch(star.dataset.star); return; }
+    const tr = e.target.closest('[data-track]');
+    if (tr){ if (tr.disabled) return; const x = currentPicks[tr.dataset.track]; if (x){ trackEntries([x]); renderTopPicks(); } return; }
+    const op = e.target.closest('[data-open]');
+    if (op) openStock(op.dataset.open);
+  });
+
+  // ---------- Filter by pattern: CSV export (all matching rows, not just the visible page) ----------
+  document.getElementById('patExportBtn').addEventListener('click', ()=>{
+    const header = ['Stock','Mcap (Cr)','Pattern','Timeframe','Signal','Status','Breakout / formed date','Entry (breakout close)','Target','Stop','R:R','30d return %','Outcome','Next results'];
+    const rows = getPatternRows().map(p=>{
+      const mc = universe[p.symbol] && universe[p.symbol].marketCapCr;
+      const dt = p.breakoutIdx!=null ? p.breakoutDate : p.formedDate;
+      return [p.symbol, mc||'', p.type, p.timeframe, signalOf(p), p.breakoutIdx!=null?'Confirmed':'Forming', isoDate(dt),
+              p.breakoutPrice!=null?p.breakoutPrice.toFixed(2):'', p.target!=null?p.target.toFixed(2):'', p.stop!=null?p.stop.toFixed(2):'',
+              p.riskReward?p.riskReward.toFixed(2):'', p.forward.r30!=null?p.forward.r30.toFixed(2):'', p.outcome, nextResultsISO(p.symbol)];
+    });
+    downloadCSV('patterns_'+localISO(new Date())+'.csv', header, rows);
+  });
+
+  // ---------- Watchlist ----------
+  const addWatchFromInput = ()=>{
+    const inp = document.getElementById('watchInput'), msg = document.getElementById('watchMsg');
+    const sym = inp.value.trim().toUpperCase();
+    if (!sym) return;
+    if (!rawData[sym] || sym.startsWith('_')){ msg.textContent = sym+' is not in the loaded data file.'; return; }
+    if (isWatched(sym)){ msg.textContent = sym+' is already on your watchlist.'; return; }
+    msg.textContent = '';
+    toggleWatch(sym);
+    inp.value = '';
+  };
+  document.getElementById('watchAddBtn').addEventListener('click', addWatchFromInput);
+  document.getElementById('watchInput').addEventListener('keydown', (e)=>{ if (e.key==='Enter') addWatchFromInput(); });
+  document.getElementById('watchlistWrap').addEventListener('click', (e)=>{
+    const un = e.target.closest('[data-unwatch]');
+    if (un){ toggleWatch(un.dataset.unwatch); return; }
+    const op = e.target.closest('[data-open]');
+    if (op) openStock(op.dataset.open);
+  });
+
+  // ---------- Pick tracker ----------
+  document.getElementById('autoTrackChk').addEventListener('change', (e)=>{
+    autoTrack = !!document.getElementById('autoTrackChk').checked;
+    LS.set(AUTO_KEY, autoTrack);
+    if (autoTrack) renderTopPicks(); // catches up on today's picks straight away
+  });
+  document.getElementById('trackerExportBtn').addEventListener('click', ()=>{
+    const header = ['Saved on','Stock','Signal','Pattern','Breakout date','Entry','Target','Stop','Score','Status','Sessions','Result return %','Result date'];
+    const rows = trackerRows().map(({t,ev})=>[t.savedOn, t.symbol, t.signal, t.type, t.breakoutDate, t.entry.toFixed(2), t.target.toFixed(2), t.stop.toFixed(2), t.score,
+      ev.status, ev.sessions==null?'':ev.sessions, ev.ret==null?'':ev.ret.toFixed(2), ev.date?isoDate(ev.date):'']);
+    downloadCSV('pick_tracker_'+localISO(new Date())+'.csv', header, rows);
+  });
+  document.getElementById('trackerClearBtn').addEventListener('click', ()=>{
+    if (!tracked.length) return;
+    if (typeof confirm==='function' && !confirm('Remove all '+tracked.length+' tracked picks from this browser?')) return;
+    tracked = []; LS.set(TRACK_KEY, tracked); renderTracker();
+  });
+  document.getElementById('trackerWrap').addEventListener('click', (e)=>{
+    const rm = e.target.closest('[data-remove]');
+    if (rm){ tracked = tracked.filter(t=>t.id!==rm.dataset.remove); LS.set(TRACK_KEY, tracked); renderTracker(); return; }
+    const op = e.target.closest('[data-open]');
+    if (op) openStock(op.dataset.open);
+  });
+
+  // ---------- Pattern leaderboard ----------
+  ['lbTf','lbSig','lbMin'].forEach(id=>{ document.getElementById(id).addEventListener('change', renderLeaderboard); });
+  document.getElementById('leaderboardWrap').addEventListener('click', (e)=>{
+    const th = e.target.closest('th.sortable');
+    if (!th) return;
+    const k = th.dataset.key;
+    if (lbSort.key===k) lbSort.dir = lbSort.dir==='asc' ? 'desc' : 'asc';
+    else { const cd = LB_COLS.find(c=>c.key===k); lbSort = {key:k, dir: cd && cd.text ? 'asc' : 'desc'}; }
+    renderLeaderboard();
   });
 
   async function processLoadedJSON(jsonText, sourceLabel){
@@ -1387,7 +2145,7 @@
         const d = src[sym];
         rawData[sym] = {
           dates: d.dates.map(s=>new Date(s)), open:d.open, high:d.high, low:d.low, close:d.close,
-          volume: d.volume || d.close.map(()=>0), marketCapCr: d.marketCapCr, fundamentals: d.fundamentals || {}
+          volume: d.volume || d.close.map(()=>0), marketCapCr: d.marketCapCr, fundamentals: d.fundamentals || {}, events: d.events || {}
         };
       });
       document.getElementById('mainContent').style.display='block'; // show the shell immediately, before the (now non-blocking) scan runs
@@ -1399,6 +2157,7 @@
       renderMarketContext();
       populateSelectors();
       renderTopPicks();
+      renderWatchlist();
       return true;
     }catch(err){
       document.getElementById('fileStatus').textContent = 'Could not parse file: '+err.message;

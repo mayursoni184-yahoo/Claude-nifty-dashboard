@@ -46,6 +46,7 @@ import time
 import urllib.request
 import csv
 import io
+from datetime import datetime, timezone
 
 NIFTY50 = ["RELIANCE","TCS","HDFCBANK","ICICIBANK","INFY","BHARTIARTL","ITC","SBIN","LT","HINDUNILVR",
     "KOTAKBANK","BAJFINANCE","AXISBANK","ASIANPAINT","MARUTI","SUNPHARMA","TITAN","ULTRACEMCO","NESTLEIND","WIPRO",
@@ -100,6 +101,31 @@ def get_universe(args):
     return symbols
 
 
+def _iso_date(ts):
+    """epoch seconds -> 'YYYY-MM-DD' (UTC), or None"""
+    try:
+        if ts is None:
+            return None
+        return datetime.fromtimestamp(int(ts), tz=timezone.utc).strftime("%Y-%m-%d")
+    except Exception:
+        return None
+
+
+def extract_events(info):
+    """Upcoming results / ex-dividend dates as Yahoo reports them.
+    Coverage for Indian stocks is patchy and sometimes estimated or stale, so the
+    dashboard treats these as a heads-up, not a guarantee."""
+    earnings = sorted({d for d in (
+        _iso_date(info.get("earningsTimestamp")),
+        _iso_date(info.get("earningsTimestampStart")),
+        _iso_date(info.get("earningsTimestampEnd")),
+    ) if d})
+    return {
+        "earnings": earnings,
+        "exDividend": _iso_date(info.get("exDividendDate")),
+    }
+
+
 def fetch_one(yf, symbol, period="4y", retries=3):
     return fetch_ticker(yf, f"{symbol}.NS", period, retries, want_fundamentals=True)
 
@@ -114,6 +140,7 @@ def fetch_ticker(yf, ticker_str, period="4y", retries=3, want_fundamentals=False
             df = df.dropna(subset=["Open", "High", "Low", "Close"])
             mcap = None
             fundamentals = {}
+            events = {}
             if want_fundamentals:
                 try:
                     info = ticker.get_info()
@@ -134,6 +161,7 @@ def fetch_ticker(yf, ticker_str, period="4y", retries=3, want_fundamentals=False
                         "industry": info.get("industry"),
                         "beta": info.get("beta"),
                     }
+                    events = extract_events(info)
                 except Exception:
                     pass
             return {
@@ -145,10 +173,11 @@ def fetch_ticker(yf, ticker_str, period="4y", retries=3, want_fundamentals=False
                 "volume": [int(v) for v in df["Volume"]],
                 "marketCapCr": round(mcap / 1e7, 1) if mcap else None,  # convert to INR crore
                 "fundamentals": fundamentals,
+                "events": events,
             }
         except Exception as e:
             if attempt == retries - 1:
-                print(f"  x {symbol}: {e}")
+                print(f"  x {ticker_str}: {e}")
                 return None
             time.sleep(2 * (attempt + 1))
 

@@ -101,6 +101,26 @@
   .minus-btn{background:transparent;border:none;color:var(--ink-dim);cursor:pointer;font-size:15px;}
   .minus-btn:hover{color:var(--red);}
   .msg{font-size:12px;color:var(--ink-dim);}
+  .mg-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(430px,1fr));gap:16px;}
+  @media(max-width:520px){.mg-grid{grid-template-columns:1fr;}}
+  .metal-card{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .mc-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;}
+  .mc-head h3{margin:0;font-size:19px;}
+  .mc-head .sub{font-family:var(--mono);font-size:11.5px;color:var(--ink-dim);}
+  .verdict{font-size:13px;padding:6px 14px;border-radius:20px;font-weight:700;white-space:nowrap;}
+  .mc-stance{margin:10px 0 6px;font-size:13px;line-height:1.55;}
+  .mc-scores{font-family:var(--mono);font-size:11.5px;color:var(--ink-dim);}
+  .mc-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px 12px;margin:14px 0;}
+  .mc-stat .k{font-size:10px;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.05em;}
+  .mc-stat .v{font-family:var(--mono);font-size:13px;font-weight:600;}
+  .metal-card canvas{width:100%;height:220px;background:var(--bg);border:1px solid var(--line);border-radius:6px;display:block;}
+  .why-group h5{margin:14px 0 4px;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--saffron);}
+  .why-item{display:flex;gap:8px;font-size:12.5px;line-height:1.5;padding:3px 0;}
+  .why-item .ic{width:14px;flex:none;font-weight:700;text-align:center;}
+  .why-item .t{font-weight:600;}
+  .why-item .d{color:var(--ink-dim);}
+  .driver-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:16px;}
+  .sip-table{margin-top:6px;}
 
   #marketContextBar{display:flex;gap:18px;flex-wrap:wrap;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 18px;margin-bottom:18px;}
   .mc-item{display:flex;flex-direction:column;}
@@ -164,6 +184,7 @@
         <div class="tab-btn" id="tabWatchlist">Watchlist</div>
         <div class="tab-btn" id="tabTracker">Pick tracker</div>
         <div class="tab-btn" id="tabLeaderboard">Pattern leaderboard</div>
+        <div class="tab-btn" id="tabMetals">Gold &amp; Silver</div>
       </div>
 
       <div id="viewTopPicks">
@@ -278,11 +299,20 @@
         </div>
         <div id="leaderboardWrap"></div>
       </div>
+
+      <div id="viewMetals" style="display:none;">
+        <div class="controls-row">
+          <label>Monthly SIP ₹</label>
+          <input type="number" id="sipAmount" style="width:110px;" min="0" step="1000">
+          <span class="msg" id="metalsStamp"></span>
+        </div>
+        <div id="metalsWrap"></div>
+      </div>
     </div>
   </div>
 
   <div class="foot-note" id="footNote" style="display:none;">
-    Heuristic swing-pivot pattern detection, not a certified charting engine or investment advice &mdash; I'm not a licensed advisor. "Retest" checks whether price revisited the breakout level within a timeframe-scaled window; "support held" checks it didn't close back through that level in the following few sessions. "Successful/Failed" outcome is based on the 30-trading-day forward return relative to breakout direction, so very recent breakouts show "In Progress" until that window completes. Historical evidence stats aggregate every instance found across your loaded universe and history depth &mdash; small n means a rougher estimate, shown next to each stat. Target/Stop-loss use each pattern's own measured-move geometry where one exists, falling back to an ATR-based estimate otherwise (reversals, volume/OBV signals) -- these are mechanical projections, not guarantees; always sanity-check against the chart. The Top Picks conviction score is a weighted blend of recency, volume, relative strength, fundamentals, historical pattern success rate, and risk-reward -- it's a shortlist to start research from, not a buy signal. Accumulation/Distribution flag OBV-vs-price divergence over a rolling window and can lag real sentiment shifts. BUY/SELL labels show the direction of the pattern signal (bullish/bearish) &mdash; they are not personalised advice; "WATCH" marks a pattern that is still forming. Watchlist, tracked picks and sizing settings are saved in this browser only (localStorage) &mdash; they don't sync across devices, and a different address/port counts as a different browser. Results / ex-dividend dates come from Yahoo and are patchy or estimated for many Indian stocks &mdash; verify before relying on them. The position-size calculator is plain arithmetic on the numbers you enter, not advice. To keep the page responsive, at most the 8 most recent instances per stock/timeframe/pattern-type are kept -- "Occurrences" in Historical Evidence reflects that capped sample, not every instance in the full loaded history, which matters most for the frequently-firing Accumulation/Distribution/Volume Breakout signals. Data is a static snapshot from your last script run; see the script for scheduling it to refresh automatically each day.
+    Heuristic swing-pivot pattern detection, not a certified charting engine or investment advice &mdash; I'm not a licensed advisor. "Retest" checks whether price revisited the breakout level within a timeframe-scaled window; "support held" checks it didn't close back through that level in the following few sessions. "Successful/Failed" outcome is based on the 30-trading-day forward return relative to breakout direction, so very recent breakouts show "In Progress" until that window completes. Historical evidence stats aggregate every instance found across your loaded universe and history depth &mdash; small n means a rougher estimate, shown next to each stat. Target/Stop-loss use each pattern's own measured-move geometry where one exists, falling back to an ATR-based estimate otherwise (reversals, volume/OBV signals) -- these are mechanical projections, not guarantees; always sanity-check against the chart. The Top Picks conviction score is a weighted blend of recency, volume, relative strength, fundamentals, historical pattern success rate, and risk-reward -- it's a shortlist to start research from, not a buy signal. Accumulation/Distribution flag OBV-vs-price divergence over a rolling window and can lag real sentiment shifts. BUY/SELL labels show the direction of the pattern signal (bullish/bearish) &mdash; they are not personalised advice; "WATCH" marks a pattern that is still forming. The Gold &amp; Silver tab applies fixed rules to ETF/futures prices, volumes and macro series (dollar, US yields, rupee, copper) &mdash; it can't see news such as central-bank buying or geopolitics. Watchlist, tracked picks and sizing settings are saved in this browser only (localStorage) &mdash; they don't sync across devices, and a different address/port counts as a different browser. Results / ex-dividend dates come from Yahoo and are patchy or estimated for many Indian stocks &mdash; verify before relying on them. The position-size calculator is plain arithmetic on the numbers you enter, not advice. To keep the page responsive, at most the 8 most recent instances per stock/timeframe/pattern-type are kept -- "Occurrences" in Historical Evidence reflects that capped sample, not every instance in the full loaded history, which matters most for the frequently-firing Accumulation/Distribution/Volume Breakout signals. Data is a static snapshot from your last script run; see the script for scheduling it to refresh automatically each day.
   </div>
 </div>
 
@@ -1007,7 +1037,7 @@
       const result = await runPatternWorker(universe);
       stockPatterns = result.stockPatterns;
       allPatternsFlat = result.allPatternsFlat;
-      trackBase = null; leaderCache = null; // invalidate cached analytics
+      trackBase = null; leaderCache = null; metalsHistCache = {}; // invalidate cached analytics
       // the worker's structured-clone round trip turns Date fields back into real Date objects
       // automatically, but breakoutDate/formedDate on each pattern need no further handling here.
     }catch(err){
@@ -1434,6 +1464,483 @@
     };
     ['cCapital','cRisk','cEntry','cStop','cTarget'].forEach(id=>el(id).addEventListener('input', update));
     update();
+  }
+
+  // ============================================================
+  // Gold & Silver tab -- a rules-based 3-6 MONTH view of the Nippon India gold / silver ETFs, built from the
+  // price, volume and macro series the fetch script stores under underscore-prefixed keys.
+  // ============================================================
+  const SIP_KEY = 'nifty_sip_v1';
+  let sipAmount = LS.get(SIP_KEY, 10000);
+  let asOfTime = null;          // when set, every metals lookup only sees bars on/before this time (used to replay the rules historically)
+  let metalsHistCache = {};
+
+  const METAL_DEFS = [
+    {id:'gold',   label:'Gold',   short:'GOLDBEES',   etfKey:'_GOLDBEES',   etfName:'Nippon India Gold ETF',   futKey:'_GOLD_FUT',   futName:'COMEX gold futures',   gKey:'_GLD', gName:'GLD (global gold ETF)',   volMult:1},
+    {id:'silver', label:'Silver', short:'SILVERBEES', etfKey:'_SILVERBEES', etfName:'Nippon India Silver ETF', futKey:'_SILVER_FUT', futName:'COMEX silver futures', gKey:'_SLV', gName:'SLV (global silver ETF)', volMult:1.6}
+  ];
+  const VERDICT_ORDER = ['Accumulate','Bullish','Bullish — stretched','Neutral','Weak','Bearish'];
+  const VERDICT_CLS = {'Accumulate':'good','Bullish':'bullish','Bullish — stretched':'candidate','Neutral':'nopattern','Weak':'weak','Bearish':'bearish'};
+
+  function mSeries(key){
+    const d = rawData[key];
+    if (!d || !d.close || d.close.length<60) return null;
+    if (asOfTime==null) return d;
+    const dates = d.dates;
+    let lo=0, hi=dates.length-1, k=-1;
+    while (lo<=hi){ const mid=(lo+hi)>>1; if (dates[mid].getTime()<=asOfTime){ k=mid; lo=mid+1; } else hi=mid-1; }
+    if (k<59) return null;
+    return {dates:dates.slice(0,k+1), close:d.close.slice(0,k+1), high:d.high.slice(0,k+1), low:d.low.slice(0,k+1), volume:d.volume?d.volume.slice(0,k+1):null};
+  }
+  function lastOf(a){ return a[a.length-1]; }
+  function retPct(a, n){ if (a.length<=n) return null; const p = a[a.length-1-n]; return p ? (a[a.length-1]/p-1)*100 : null; }
+  function smaAt(a, n){ if (a.length<n) return null; let s=0; for (let i=a.length-n;i<a.length;i++) s+=a[i]; return s/n; }
+  function smaSeries(a, n){
+    const out = new Array(a.length).fill(null); let s=0;
+    for (let i=0;i<a.length;i++){ s+=a[i]; if (i>=n) s-=a[i-n]; if (i>=n-1) out[i]=s/n; }
+    return out;
+  }
+  function rsiLastValue(close, period=14){
+    if (close.length<period+1) return null;
+    let gain=0, loss=0;
+    for (let i=1;i<=period;i++){ const ch=close[i]-close[i-1]; if (ch>=0) gain+=ch; else loss-=ch; }
+    gain/=period; loss/=period;
+    for (let i=period+1;i<close.length;i++){
+      const ch=close[i]-close[i-1];
+      gain = (gain*(period-1)+Math.max(ch,0))/period;
+      loss = (loss*(period-1)+Math.max(-ch,0))/period;
+    }
+    return loss===0 ? 100 : 100-100/(1+gain/loss);
+  }
+  // last close of each Monday-based calendar week
+  function weeklyCloses(d){
+    const out = []; let cur = null;
+    for (let i=0;i<d.close.length;i++){
+      const wk = Math.floor((d.dates[i].getTime()/86400000+3)/7);
+      if (wk!==cur){ out.push(d.close[i]); cur = wk; } else out[out.length-1] = d.close[i];
+    }
+    return out;
+  }
+  function rangeOf(a, n){
+    const m = Math.min(n, a.length); let hi=-Infinity, lo=Infinity;
+    for (let i=a.length-m;i<a.length;i++){ if (a[i]>hi) hi=a[i]; if (a[i]<lo) lo=a[i]; }
+    return {hi, lo};
+  }
+  function volRatioOf(d, sN, lN){
+    const v = d.volume; if (!v) return null;
+    const n = v.length; if (n<sN+lN) return null;
+    let a=0, b=0;
+    for (let i=n-sN;i<n;i++) a+=v[i];
+    for (let i=n-sN-lN;i<n-sN;i++) b+=v[i];
+    a/=sN; b/=lN;
+    return b>0 ? a/b : null;
+  }
+  // share of the last `lb` sessions' volume that was net buying (up-days minus down-days), -1..+1
+  function obvPressure(d, lb){
+    const c=d.close, v=d.volume, n=c.length;
+    if (!v || n<lb+2) return null;
+    let net=0, tot=0;
+    for (let i=n-lb;i<n;i++){ net += c[i]>c[i-1] ? v[i] : c[i]<c[i-1] ? -v[i] : 0; tot += v[i]; }
+    return tot ? net/tot : null;
+  }
+  function percentileOf(arr, v){ let k=0; for (let i=0;i<arr.length;i++) if (arr[i]<=v) k++; return k/arr.length*100; }
+  function goldSilverRatio(){
+    const g = mSeries('_GOLD_FUT'), s = mSeries('_SILVER_FUT');
+    if (!g || !s) return null;
+    const sMap = new Map(); s.dates.forEach((d,i)=>sMap.set(d.getTime(), s.close[i]));
+    const series = [];
+    g.dates.forEach((d,i)=>{ const sv = sMap.get(d.getTime()); if (sv>0) series.push(g.close[i]/sv); });
+    if (series.length<60) return null;
+    const cur = lastOf(series);
+    return {cur, pct: percentileOf(series,cur), n: series.length};
+  }
+  // +1 if the series has been RISING over ~3 months (unless the 6-month picture flatly contradicts it), -1 if falling, else 0
+  function riseFall(series, thr){
+    const ch3 = retPct(series.close,63), ch6 = retPct(series.close,126);
+    if (ch3==null) return null;
+    let dirn = ch3>thr ? 1 : ch3<-thr ? -1 : 0;
+    if (dirn>0 && ch6!=null && ch6<-thr) dirn = 0;
+    if (dirn<0 && ch6!=null && ch6>thr) dirn = 0;
+    return {dirn, ch3, ch6};
+  }
+  function riskContext(){
+    const nf = mSeries('_NIFTY_INDEX'), vx = mSeries('_INDIA_VIX');
+    return {nifty: (nf && nf.close.length>200) ? overallTrend(nf.close,50,200) : null, vix: vx ? lastOf(vx.close) : null};
+  }
+  function pt(cat, tone, title, detail, weight){ return {cat, tone, title, detail, weight: weight==null?1:weight}; }
+
+  function metalVerdict(dir, entry){
+    if (dir>=-10 && entry>=0.4) return {label:'Accumulate',
+      stance:'Over a 3–6 month view the trend is intact and price sits at a discount to its recent highs — a good zone to keep your SIP running and, if you like, add an extra tranche.'};
+    if (dir>=35 && entry<=-0.4) return {label:'Bullish — stretched',
+      stance:'Over 3–6 months the trend is up, but price is extended. Keep the regular SIP; consider holding any extra money back for a pullback towards the 50-day average.'};
+    if (dir>=35) return {label:'Bullish',
+      stance:'The 3–6 month trend is up. Keep the regular SIP running; avoid putting large lump sums in all at once.'};
+    if (dir>=-10) return {label:'Neutral',
+      stance:'No strong 3–6 month edge either way. A regular SIP is fine; there is no particular reason to speed up or slow down.'};
+    if (dir>=-35) return {label:'Weak',
+      stance:'The 3–6 month picture is weakening. Keep SIP amounts modest and stagger any extra buying; watch for price to reclaim its 50-day average.'};
+    return {label:'Bearish',
+      stance:'The 3–6 month trend is down. A small SIP keeps averaging your cost, but avoid adding lump sums until price stabilises above its 50-day average.'};
+  }
+
+  function analyzeMetal(def, ratio){
+    const etf = mSeries(def.etfKey), fut = mSeries(def.futKey), glob = mSeries(def.gKey);
+    const primary = etf || fut;
+    if (!primary) return null;
+    const cur = etf ? '₹' : '$';
+    const name = etf ? def.short : def.futName;
+    const c = primary.close, last = lastOf(c);
+    const m50 = smaAt(c,50), m200 = smaAt(c,200);
+    const vm = def.volMult;
+    const f2 = x=>x.toFixed(2);
+    const pts = [];
+    let tone;
+
+    // ---- Trend (50/200-day structure and 3- and 6-month momentum) ----
+    if (m50!=null){
+      const above50 = last>m50;
+      if (m200!=null){
+        const above200 = last>m200;
+        tone = (above50&&above200) ? 1 : (!above50&&!above200) ? -1 : 0;
+        pts.push(pt('Trend', tone,
+          tone>0 ? 'Uptrend: price is above its moving averages' : tone<0 ? 'Downtrend: price is below its moving averages' : 'Mixed: price is between its moving averages',
+          `${name} (${cur}${f2(last)}) is ${above50?'above':'below'} its 50-day average (${cur}${f2(m50)}) and ${above200?'above':'below'} its 200-day (${cur}${f2(m200)})`, 2));
+        pts.push(pt('Trend', m50>m200?1:-1,
+          m50>m200 ? '50-day average is above the 200-day' : '50-day average is below the 200-day',
+          m50>m200 ? 'The longer-term trend is up' : 'The longer-term trend is down', 1));
+      } else {
+        pts.push(pt('Trend', above50?1:-1, above50?'Price is above its 50-day average':'Price is below its 50-day average', `${name} ${cur}${f2(last)} vs 50-day ${cur}${f2(m50)}`, 2));
+      }
+    }
+    const r3 = retPct(c,63), r6 = retPct(c,126);
+    if (r3!=null){
+      tone = r3>5*vm ? 1 : r3<-5*vm ? -1 : 0;
+      pts.push(pt('Trend', tone, `3-month momentum ${fmtPct(r3)}`, tone>0?'A strong gain over roughly the last 3 months':tone<0?'A meaningful fall over roughly the last 3 months':'Little net change over roughly the last 3 months', 1));
+    }
+    if (r6!=null){
+      tone = r6>10*vm ? 1 : r6<-10*vm ? -1 : 0;
+      pts.push(pt('Trend', tone, `6-month momentum ${fmtPct(r6)}`, tone>0?'A strong gain over roughly the last 6 months':tone<0?'A meaningful fall over roughly the last 6 months':'Little net change over roughly the last 6 months', 1));
+    }
+    if (etf && fut){
+      const fm50 = smaAt(fut.close,50), fm200 = smaAt(fut.close,200), fl = lastOf(fut.close);
+      if (fm50!=null && fm200!=null){
+        const a50 = fl>fm50, a200 = fl>fm200;
+        tone = (a50&&a200) ? 1 : (!a50&&!a200) ? -1 : 0;
+        pts.push(pt('Trend', tone,
+          tone>0 ? 'Global futures are bullish' : tone<0 ? 'Global futures are bearish' : 'Global futures are mixed',
+          `${def.futName} ($${f2(fl)}) are ${a50?'above':'below'} their 50-day and ${a200?'above':'below'} their 200-day averages`, 2));
+      }
+    }
+
+    // ---- Entry zone: is today a good price to ADD over a 3-6 month horizon? (+ = attractive, - = stretched) ----
+    const wc = weeklyCloses(primary);
+    const wrsi = wc.length>=16 ? rsiLastValue(wc,14) : null;
+    if (wrsi!=null){
+      tone = wrsi<40 ? 1 : wrsi>65 ? -1 : 0;
+      pts.push(pt('Entry', tone, `Weekly RSI ${wrsi.toFixed(0)}`, wrsi<40?'Sold down over recent weeks — a better backdrop for averaging in':wrsi>65?'Overbought on the weekly chart — price has run hard, so chasing here is riskier':'Neutral weekly momentum, neither stretched nor washed out', 1));
+    }
+    const rg = rangeOf(c,252);
+    const dd = (rg.hi-last)/rg.hi*100;
+    tone = dd>=6*vm ? 1 : dd<=2*vm ? -1 : 0;
+    pts.push(pt('Entry', tone, `${dd.toFixed(1)}% below its 52-week high`, tone>0?'A real pullback from the highs — a more attractive price than buying at the peak':tone<0?'At or near the 52-week high — no discount on offer':'A modest pullback from the high', 1));
+    if (m50!=null){
+      const d50 = (last/m50-1)*100;
+      tone = d50>8*vm ? -1 : (d50<=1 && d50>=-8*vm) ? 1 : 0;
+      pts.push(pt('Entry', tone, `${d50>=0?'+':''}${d50.toFixed(1)}% versus its 50-day average`,
+        tone<0 ? 'Stretched well above the 50-day average — often followed by a pause or dip' : tone>0 ? 'At or just under the 50-day average — a reasonable accumulation level' : 'Somewhat above the 50-day average', 1));
+    }
+    const rg6 = rangeOf(c,126);
+    if (rg6.hi>rg6.lo){
+      const pos6 = (last-rg6.lo)/(rg6.hi-rg6.lo);
+      tone = pos6<=0.30 ? 1 : pos6>=0.85 ? -1 : 0;
+      pts.push(pt('Entry', tone, `${(pos6*100).toFixed(0)}% of the way up its 6-month range`, tone>0?'In the lower part of its 6-month range — relatively cheap versus recent months':tone<0?'Near the top of its 6-month range — relatively expensive versus recent months':'In the middle of its 6-month range', 1));
+    }
+
+    // ---- Demand & flows (3-month volumes versus the prior 6 months) ----
+    const flowPoint = (series, label, isEtf, w)=>{
+      const vr = volRatioOf(series,60,180), ch = retPct(series.close,60);
+      if (vr==null || ch==null) return;
+      let t=0, title;
+      if (vr>=1.2 && ch>0){ t=1; title='demand building — volumes rising with price'; }
+      else if (vr>=1.2 && ch<0){ t=-1; title='selling pressure — volumes rising as price falls'; }
+      else if (vr<=0.8){ title='quiet — trading volumes below normal'; }
+      else { title='volumes normal'; }
+      pts.push(pt('Flows', t, `${label}: ${title}`, `60-day average volume is ${vr.toFixed(2)}× its prior 6-month average, while price moved ${fmtPct(ch)} over 60 sessions${isEtf?'':' (global trading interest, not fund flows)'}`, w));
+    };
+    if (etf){
+      flowPoint(etf, def.short, true, 1.5);
+      const ob = obvPressure(etf,60);
+      if (ob!=null){
+        tone = ob>0.10 ? 1 : ob<-0.10 ? -1 : 0;
+        pts.push(pt('Flows', tone, tone>0?'Net buying (accumulation)':tone<0?'Net selling (distribution)':'Buying and selling balanced', `Over the last 60 sessions ${(Math.abs(ob)*100).toFixed(0)}% of ${def.short} volume was net ${ob>=0?'buying':'selling'} (up-days versus down-days)`, 1));
+      }
+    }
+    if (glob) flowPoint(glob, def.gName, false, 1);
+
+    // ---- Macro drivers (3-month moves, checked against the 6-month picture) ----
+    const dxy = mSeries('_DXY');
+    if (dxy){
+      const rf = riseFall(dxy,1.5);
+      if (rf){
+        tone = -rf.dirn;
+        pts.push(pt('Macro', tone, tone>0?'US dollar is weakening':tone<0?'US dollar is strengthening':'US dollar: no clear trend',
+          `Dollar index ${f2(lastOf(dxy.close))}, ${fmtPct(rf.ch3)} over 3 months (${rf.ch6==null?'n/a':fmtPct(rf.ch6)} over 6). ${tone>0?'A softer dollar usually supports gold and silver':tone<0?'A stronger dollar is usually a headwind for gold and silver':'No consistent push either way'}`, 1.5));
+      }
+    }
+    const tnx = mSeries('_US10Y');
+    if (tnx){
+      const rf = riseFall(tnx,4);
+      if (rf){
+        const y = lastOf(tnx.close)>20 ? lastOf(tnx.close)/10 : lastOf(tnx.close);
+        tone = -rf.dirn;
+        pts.push(pt('Macro', tone, tone>0?'US bond yields are falling':tone<0?'US bond yields are rising':'US bond yields: no clear trend',
+          `US 10-year yield ${f2(y)}%, ${fmtPct(rf.ch3)} (relative) over 3 months (${rf.ch6==null?'n/a':fmtPct(rf.ch6)} over 6). Falling yields lower the cost of holding metals that pay no interest (nominal yield used as a stand-in for real yields)`, 1.5));
+      }
+    }
+    const fx = mSeries('_USDINR');
+    if (fx && etf){
+      const rf = riseFall(fx,1);
+      if (rf){
+        tone = rf.dirn;
+        pts.push(pt('Macro', tone, tone>0?'Rupee is weakening':tone<0?'Rupee is strengthening':'Rupee: no clear trend',
+          `USD/INR ${f2(lastOf(fx.close))}, ${fmtPct(rf.ch3)} over 3 months (${rf.ch6==null?'n/a':fmtPct(rf.ch6)} over 6). ${tone>0?'A weaker rupee lifts the rupee price of the ETF':tone<0?'A stronger rupee trims rupee returns on the ETF':'Little consistent currency effect on the ETF'}`, 1));
+      }
+    }
+    const rc = riskContext();
+    if (rc.nifty || rc.vix!=null){
+      const riskOff = (rc.nifty && rc.nifty.label==='Bearish') || (rc.vix!=null && rc.vix>20);
+      pts.push(pt('Macro', riskOff?1:0, riskOff?'Equity risk-off — safe-haven demand likely':'Equities are calm — little safe-haven bid',
+        `Nifty trend: ${rc.nifty?rc.nifty.label:'n/a'}${rc.vix!=null?`; India VIX ${rc.vix.toFixed(1)}`:''}`, def.id==='gold'?1:0.5));
+    }
+    if (def.id==='silver'){
+      const cu = mSeries('_COPPER_FUT');
+      if (cu){
+        const cm50 = smaAt(cu.close,50), cm200 = smaAt(cu.close,200), cl = lastOf(cu.close);
+        if (cm50!=null && cm200!=null){
+          const a50 = cl>cm50, a200 = cl>cm200;
+          tone = (a50&&a200) ? 1 : (!a50&&!a200) ? -1 : 0;
+          pts.push(pt('Macro', tone, tone>0?'Industrial demand: copper is trending up':tone<0?'Industrial demand: copper is trending down':'Industrial demand: copper is mixed',
+            `Copper futures ($${f2(cl)}/lb) are ${a50?'above':'below'} their 50-day and ${a200?'above':'below'} their 200-day averages — a proxy for industrial appetite (solar, EVs, electronics) that silver also serves`, 1.5));
+        }
+      }
+      if (ratio){
+        tone = ratio.pct>=75 ? 1 : ratio.pct<=25 ? -1 : 0;
+        pts.push(pt('Macro', tone, tone>0?'Silver looks cheap versus gold':tone<0?'Silver looks expensive versus gold':'Gold/silver ratio is mid-range',
+          `Gold ÷ silver = ${ratio.cur.toFixed(1)}, at the ${ratio.pct.toFixed(0)}th percentile of the ${ratio.n} sessions loaded. A high ratio means silver is cheap relative to gold`, 1));
+      }
+    }
+    // ---- Seasonal context (informational only, not scored) ----
+    const mth = primary.dates[primary.dates.length-1].getUTCMonth();
+    if (etf && (mth>=9 || mth<=1)){
+      pts.push(pt('Seasonal', 0, 'Festive / wedding season in India', 'October to February is traditionally when Indian physical demand for gold and silver firms (Diwali/Dhanteras, weddings). Seasonal context only — it has not reliably predicted price moves', 0));
+    }
+
+    // ---- scores: trend 45%, macro 35%, flows 20% -> direction; entry zone decides "Accumulate" ----
+    const mean = cat=>{
+      const xs = pts.filter(p=>p.cat===cat && p.weight>0);
+      if (!xs.length) return null;
+      const w = xs.reduce((a,p)=>a+p.weight,0);
+      return xs.reduce((a,p)=>a+p.tone*p.weight,0)/w;
+    };
+    const sTrend = mean('Trend'), sFlow = mean('Flows'), sMacro = mean('Macro'), sEntry = mean('Entry');
+    const parts = [[sTrend,0.45],[sMacro,0.35],[sFlow,0.20]].filter(x=>x[0]!=null);
+    const dir = parts.length ? parts.reduce((a,x)=>a+x[0]*x[1],0)/parts.reduce((a,x)=>a+x[1],0)*100 : 0;
+    const entry = sEntry==null ? 0 : sEntry;
+    const v = metalVerdict(dir, entry);
+    const dirPts = pts.filter(p=>p.cat!=='Entry' && p.cat!=='Seasonal');
+    return {
+      def, etf, fut, primary, cur, name, last, pts,
+      dir, entry, verdict: Object.assign({cls: VERDICT_CLS[v.label]}, v),
+      entryLabel: entry>=0.4 ? 'Attractive' : entry<=-0.4 ? 'Stretched' : 'Fair',
+      up: dirPts.filter(p=>p.tone>0).length, down: dirPts.filter(p=>p.tone<0).length, flat: dirPts.filter(p=>p.tone===0).length,
+      stats: {
+        ch: {d1:retPct(c,1), w1:retPct(c,5), m1:retPct(c,21), m3:r3, m6:r6, y1:retPct(c,252)},
+        hi:rg.hi, lo:rg.lo, pos: rg.hi>rg.lo ? (last-rg.lo)/(rg.hi-rg.lo)*100 : null,
+        wrsi, d50: m50 ? (last/m50-1)*100 : null, d200: m200 ? (last/m200-1)*100 : null
+      }
+    };
+  }
+
+  // Replays the rules at the last trading day of every calendar month in the loaded history (using only data that existed
+  // then) and records what the price did over the next 3 and 6 months. In-sample: the thresholds were set by me, not fitted.
+  function metalHistory(def){
+    if (metalsHistCache[def.id]!==undefined) return metalsHistCache[def.id];
+    asOfTime = null;
+    const full = mSeries(def.etfKey) || mSeries(def.futKey);
+    let res = null;
+    if (full){
+      const n = full.close.length, obs = [];
+      try{
+        for (let i=220; i<n-1; i++){
+          if (i+63>=n) break;
+          if (full.dates[i].getUTCMonth()===full.dates[i+1].getUTCMonth()) continue; // keep only each month's last bar
+          asOfTime = full.dates[i].getTime();
+          const r = analyzeMetal(def, goldSilverRatio());
+          if (!r) continue;
+          obs.push({label:r.verdict.label,
+                    f3:(full.close[i+63]/full.close[i]-1)*100,
+                    f6: i+126<n ? (full.close[i+126]/full.close[i]-1)*100 : null});
+        }
+      } finally { asOfTime = null; }
+      const agg = items=>{
+        const six = items.filter(o=>o.f6!=null);
+        return {n:items.length, med3:median(items.map(o=>o.f3)), med6:six.length?median(six.map(o=>o.f6)):null,
+                pos6: six.length ? six.filter(o=>o.f6>0).length/six.length*100 : null, n6: six.length};
+      };
+      if (obs.length>=8){
+        res = {all:agg(obs), rows: VERDICT_ORDER.map(l=>({label:l, ...agg(obs.filter(o=>o.label===l))})).filter(r=>r.n>0)};
+      }
+    }
+    metalsHistCache[def.id] = res;
+    return res;
+  }
+
+  // monthly SIP simulation: one buy at the first trading day of each calendar month (fractional units)
+  function sipSim(series, months, amount){
+    const dates = series.dates, close = series.close, n = dates.length;
+    if (!(amount>0) || n<2) return null;
+    const lastD = dates[n-1];
+    const startTotal = lastD.getUTCFullYear()*12 + lastD.getUTCMonth() - (months-1);
+    const firstTotal = dates[0].getUTCFullYear()*12 + dates[0].getUTCMonth();
+    if (firstTotal>startTotal) return null; // the loaded history doesn't reach back far enough
+    const seen = new Set(); let units=0, invested=0, buys=0;
+    for (let i=0;i<n;i++){
+      const t = dates[i].getUTCFullYear()*12 + dates[i].getUTCMonth();
+      if (t<startTotal || seen.has(t)) continue;
+      seen.add(t); units += amount/close[i]; invested += amount; buys++;
+    }
+    if (!buys) return null;
+    const value = units*close[n-1];
+    return {buys, invested, value, ret:(value/invested-1)*100, avgCost: invested/units, last: close[n-1]};
+  }
+
+  function drawMetalChart(canvas, series, cur){
+    if (!canvas || !canvas.getContext) return;
+    const ctx = canvas.getContext('2d'); if (!ctx) return;
+    const dpr = window.devicePixelRatio || 1;
+    const cssW = canvas.clientWidth || 640, cssH = 220;
+    canvas.width = Math.round(cssW*dpr); canvas.height = Math.round(cssH*dpr);
+    ctx.scale(dpr, dpr);
+    const c = series.close, n = c.length;
+    const m50 = smaSeries(c,50), m200 = smaSeries(c,200);
+    const N = Math.min(504, n), s0 = n-N;
+    const priceS = c.slice(s0), a50 = m50.slice(s0), a200 = m200.slice(s0);
+    let lo=Infinity, hi=-Infinity;
+    [priceS,a50,a200].forEach(arr=>arr.forEach(v=>{ if (v!=null){ if (v<lo) lo=v; if (v>hi) hi=v; } }));
+    if (!(hi>lo)) return;
+    const padL=58, padR=10, padT=22, padB=20, w=cssW-padL-padR, h=cssH-padT-padB;
+    const x = i=> padL + (i/(N-1))*w, y = v=> padT + h - ((v-lo)/(hi-lo))*h;
+    ctx.clearRect(0,0,cssW,cssH);
+    ctx.font = '10px monospace'; ctx.lineWidth = 1;
+    for (let g=0; g<=4; g++){
+      const gy = padT + h*g/4;
+      ctx.strokeStyle = '#22303f'; ctx.beginPath(); ctx.moveTo(padL,gy); ctx.lineTo(cssW-padR,gy); ctx.stroke();
+      ctx.fillStyle = '#8ea2b5'; ctx.fillText(cur+(hi-(hi-lo)*g/4).toFixed(hi>1000?0:2), 2, gy+3);
+    }
+    const line = (arr, color, lw)=>{
+      ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.beginPath();
+      let started = false;
+      arr.forEach((v,i)=>{ if (v==null) return; if (!started){ ctx.moveTo(x(i),y(v)); started=true; } else ctx.lineTo(x(i),y(v)); });
+      ctx.stroke();
+    };
+    line(a200, '#c9d3da', 1.2); line(a50, '#5b9bf0', 1.2); line(priceS, '#ff9f43', 1.8);
+    ctx.fillStyle = '#8ea2b5';
+    ctx.fillText(isoDate(series.dates[s0]), padL, cssH-5);
+    ctx.fillText(isoDate(series.dates[n-1]), cssW-padR-62, cssH-5);
+    ctx.fillStyle = '#ff9f43'; ctx.fillText('price', padL, 12);
+    ctx.fillStyle = '#5b9bf0'; ctx.fillText('50-day', padL+44, 12);
+    ctx.fillStyle = '#c9d3da'; ctx.fillText('200-day', padL+94, 12);
+  }
+
+  function renderMetals(){
+    const wrap = document.getElementById('metalsWrap');
+    const sipEl = document.getElementById('sipAmount');
+    if (sipEl && document.activeElement!==sipEl) sipEl.value = sipAmount;
+    asOfTime = null;
+    if (!Object.keys(rawData).length){ wrap.innerHTML = '<div class="empty">Load data to see gold &amp; silver.</div>'; return; }
+    const ratio = goldSilverRatio();
+    const results = METAL_DEFS.map(d=>analyzeMetal(d, ratio)).filter(Boolean);
+    if (!results.length){
+      wrap.innerHTML = `<div class="empty">Gold &amp; silver data isn't in your data file yet. Re-run <code>fetch_research_data.py</code> (or "Refresh data now") &mdash; it now also fetches GOLDBEES, SILVERBEES, COMEX futures, the dollar index, US 10-year yield, USD/INR, copper, GLD and SLV.</div>`;
+      document.getElementById('metalsStamp').textContent = '';
+      return;
+    }
+    const stampSrc = results[0].primary;
+    document.getElementById('metalsStamp').textContent = `Latest bar in the data: ${isoDate(stampSrc.dates[stampSrc.dates.length-1])}`;
+
+    // ---- drivers strip ----
+    const tiles = [];
+    const tile = (label, val, sub, tone)=>`<div class="ev-stat"><div class="lbl">${label}</div><div class="val ${tone>0?'pos':tone<0?'neg':''}">${val}</div><div class="msg">${sub}</div></div>`;
+    if (ratio) tiles.push(tile('Gold ÷ silver ratio', ratio.cur.toFixed(1), `${ratio.pct.toFixed(0)}th percentile of loaded history (high = silver cheap)`, 0));
+    const dxy = mSeries('_DXY'); if (dxy){ const rf = riseFall(dxy,1.5); tiles.push(tile('US dollar index', lastOf(dxy.close).toFixed(2), `${fmtPct(rf?rf.ch3:null)} over 3m (falling helps metals)`, rf?-rf.dirn:0)); }
+    const tnx = mSeries('_US10Y'); if (tnx){ const rf = riseFall(tnx,4); const y = lastOf(tnx.close)>20 ? lastOf(tnx.close)/10 : lastOf(tnx.close); tiles.push(tile('US 10-year yield', y.toFixed(2)+'%', `${fmtPct(rf?rf.ch3:null)} over 3m (falling helps metals)`, rf?-rf.dirn:0)); }
+    const fx = mSeries('_USDINR'); if (fx){ const rf = riseFall(fx,1); tiles.push(tile('USD / INR', lastOf(fx.close).toFixed(2), `${fmtPct(rf?rf.ch3:null)} over 3m (rising lifts ETF prices in ₹)`, rf?rf.dirn:0)); }
+    if (marketContext.nifty) tiles.push(tile('Equity backdrop', marketContext.nifty.label, marketContext.vix ? `India VIX ${marketContext.vix.value.toFixed(1)} · ${marketContext.vix.label}` : 'Nifty 50 trend', 0));
+
+    const missing = [];
+    [['_GOLDBEES','GOLDBEES'],['_SILVERBEES','SILVERBEES'],['_GOLD_FUT','gold futures'],['_SILVER_FUT','silver futures'],['_GLD','GLD'],['_SLV','SLV'],['_COPPER_FUT','copper'],['_DXY','dollar index'],['_US10Y','US 10Y yield'],['_USDINR','USD/INR']]
+      .forEach(([k,l])=>{ if (!mSeries(k)) missing.push(l); });
+
+    const GROUPS = [['Trend','Trend'],['Entry','Entry zone — is today a good price to add?'],['Flows','Demand & flows'],['Macro','Macro drivers'],['Seasonal','Seasonal context']];
+    const icon = t=> t>0 ? '<span class="ic pos">▲</span>' : t<0 ? '<span class="ic neg">▼</span>' : '<span class="ic" style="color:var(--ink-dim);">•</span>';
+    const cards = results.map(r=>{
+      const s = r.stats, v = r.verdict;
+      const chip = (k,val)=>`<div class="mc-stat"><div class="k">${k}</div><div class="v ${pctClass(val)}">${fmtPct(val)}</div></div>`;
+      const sipRows = [12,24,36].map(m=>{
+        const x = sipSim(r.primary, m, sipAmount);
+        return x ? `<tr><td>Last ${m} months</td><td>${fmtINR(x.invested)}</td><td>${fmtINR(x.value)}</td><td class="${pctClass(x.ret)}">${fmtPct(x.ret)}</td><td>${r.cur}${x.avgCost.toFixed(2)}</td></tr>`
+                 : `<tr><td>Last ${m} months</td><td colspan="4" class="msg">not enough history loaded</td></tr>`;
+      }).join('');
+      const hist = metalHistory(r.def);
+      const histHtml = hist ? `
+        <div class="why-group"><h5>How have past views played out? (rules replayed at each month-end)</h5>
+          <table class="sip-table"><thead><tr><th>View at the time</th><th>Month-ends</th><th>Median next 3 months</th><th>Median next 6 months</th><th>6-month gain rate</th></tr></thead>
+          <tbody>${hist.rows.map(h=>`<tr><td><span class="badge ${VERDICT_CLS[h.label]}">${h.label}</span></td><td>${h.n}${h.n<5?' <span class="msg">(few)</span>':''}</td><td class="${pctClass(h.med3)}">${fmtPct(h.med3)}</td><td class="${pctClass(h.med6)}">${fmtPct(h.med6)}</td><td>${h.pos6==null?'—':h.pos6.toFixed(0)+'%'}</td></tr>`).join('')}
+          <tr><td><strong>Every month-end</strong></td><td>${hist.all.n}</td><td class="${pctClass(hist.all.med3)}">${fmtPct(hist.all.med3)}</td><td class="${pctClass(hist.all.med6)}">${fmtPct(hist.all.med6)}</td><td>${hist.all.pos6==null?'—':hist.all.pos6.toFixed(0)+'%'}</td></tr></tbody></table>
+          <div class="msg" style="line-height:1.6;">A view is only useful if it beat the "every month-end" baseline. Windows overlap and the sample is small (${hist.all.n} month-ends), and the thresholds were set by hand rather than tested out-of-sample, so read this as a sanity check, not proof.</div>
+        </div>` : `<div class="why-group"><h5>How have past views played out?</h5><div class="msg">Not enough loaded history to replay the rules (needs about 9 months beyond the first year).</div></div>`;
+      return `
+      <div class="metal-card">
+        <div class="mc-head">
+          <div><h3>${r.def.label}</h3><div class="sub">${r.etf ? r.def.etfName+' · '+r.def.short : r.def.futName+' (ETF not in data)'} · ${r.cur}${r.last.toFixed(2)}</div></div>
+          <div style="text-align:right;"><span class="badge ${v.cls} verdict">${v.label}</span><div class="msg" style="margin-top:4px;">3–6 month outlook</div></div>
+        </div>
+        <div class="mc-stance">${v.stance}</div>
+        <div class="mc-scores">Direction score ${r.dir>=0?'+':''}${r.dir.toFixed(0)} / 100 &middot; Entry zone: ${r.entryLabel} &middot; ▲ ${r.up} supportive · ▼ ${r.down} headwinds · • ${r.flat} neutral</div>
+        <div class="mc-stats">
+          ${chip('1 day', s.ch.d1)}${chip('1 week', s.ch.w1)}${chip('1 month', s.ch.m1)}${chip('3 months', s.ch.m3)}${chip('6 months', s.ch.m6)}${chip('1 year', s.ch.y1)}
+          <div class="mc-stat"><div class="k">52-wk range</div><div class="v">${r.cur}${s.lo.toFixed(2)} – ${r.cur}${s.hi.toFixed(2)}</div></div>
+          <div class="mc-stat"><div class="k">Position in range</div><div class="v">${s.pos==null?'—':s.pos.toFixed(0)+'%'}</div></div>
+          <div class="mc-stat"><div class="k">Weekly RSI</div><div class="v">${s.wrsi==null?'—':s.wrsi.toFixed(0)}</div></div>
+          <div class="mc-stat"><div class="k">vs 50-day</div><div class="v ${pctClass(s.d50)}">${fmtPct(s.d50)}</div></div>
+          <div class="mc-stat"><div class="k">vs 200-day</div><div class="v ${pctClass(s.d200)}">${fmtPct(s.d200)}</div></div>
+        </div>
+        <canvas id="chart-${r.def.id}"></canvas>
+        <div class="msg" style="margin:6px 0 0;">▲ supportive / favourable &middot; ▼ headwind / stretched &middot; • neutral</div>
+        ${GROUPS.map(([cat,title])=>{
+          const items = r.pts.filter(p=>p.cat===cat);
+          if (!items.length) return '';
+          return `<div class="why-group"><h5>${title}</h5>${items.map(p=>`<div class="why-item">${icon(p.tone)}<div><span class="t">${p.title}.</span> <span class="d">${p.detail}</span></div></div>`).join('')}</div>`;
+        }).join('')}
+        ${histHtml}
+        <div class="why-group"><h5>If you had been running a monthly SIP of ${fmtINR(sipAmount)}</h5>
+          <table class="sip-table"><thead><tr><th>Period</th><th>Invested</th><th>Value now</th><th>Return</th><th>Avg cost</th></tr></thead><tbody>${sipRows}</tbody></table>
+          <div class="msg">Buys on the first trading day of each month at the close (fractional units, no charges). Today's price: ${r.cur}${r.last.toFixed(2)}.</div>
+        </div>
+      </div>`;
+    }).join('');
+
+    wrap.innerHTML = `
+      <div class="msg" style="margin-bottom:12px;line-height:1.6;"><strong style="color:var(--ink);">Outlook horizon: 3–6 months.</strong> Signals use the 50/200-day trend, 3- and 6-month momentum, weekly RSI, the 6-month range, 60-day volumes and 3-month macro moves &mdash; not day-to-day noise.</div>
+      ${tiles.length ? `<div class="driver-grid">${tiles.join('')}</div>` : ''}
+      ${missing.length ? `<div class="msg" style="margin-bottom:10px;">Not in your data file yet: ${missing.join(', ')} &mdash; the related signals are skipped. Re-run the fetch script to include them.</div>` : ''}
+      <div class="mg-grid">${cards}</div>
+      <div class="why-group" style="margin-top:18px;"><h5>Not measured here — worth checking yourself</h5>
+        <div class="msg" style="line-height:1.7;">Central-bank buying (World Gold Council reports) &middot; geopolitical tension and safe-haven flows &middot; the Fed's rate path and real (inflation-adjusted) yields &middot; changes to India's import duty or GST on gold and silver &middot; the ETF's premium or discount to NAV (iNAV) &middot; silver supply-deficit and industrial-demand news (Silver Institute).</div>
+      </div>
+      <div class="msg" style="line-height:1.6;margin-top:12px;">Views come from fixed rules: trend (45%), macro (35%) and demand &amp; flows (20%) set the direction score; the "entry zone" (weekly RSI, pullback from the 52-week high, distance from the 50-day average, position in the 6-month range) decides whether a non-bearish view reads as Accumulate. Gold and silver can reverse sharply on news these rules can't see. This is a decision aid, not personalised advice.</div>`;
+    results.forEach(r=>drawMetalChart(document.getElementById('chart-'+r.def.id), r.primary, r.cur));
   }
 
   // ---------- Buy / Sell signal helpers ----------
@@ -2019,7 +2526,8 @@
     {btn:'tabByPattern',   view:'viewByPattern'},
     {btn:'tabWatchlist',   view:'viewWatchlist',   onShow: renderWatchlist},
     {btn:'tabTracker',     view:'viewTracker',     onShow: renderTracker},
-    {btn:'tabLeaderboard', view:'viewLeaderboard', onShow: renderLeaderboard}
+    {btn:'tabLeaderboard', view:'viewLeaderboard', onShow: renderLeaderboard},
+    {btn:'tabMetals',      view:'viewMetals',      onShow: renderMetals}
   ];
   TABS.forEach(t=>{
     document.getElementById(t.btn).addEventListener('click', ()=>{
@@ -2133,6 +2641,13 @@
     if (lbSort.key===k) lbSort.dir = lbSort.dir==='asc' ? 'desc' : 'asc';
     else { const cd = LB_COLS.find(c=>c.key===k); lbSort = {key:k, dir: cd && cd.text ? 'asc' : 'desc'}; }
     renderLeaderboard();
+  });
+
+  // ---------- Gold & Silver ----------
+  document.getElementById('sipAmount').addEventListener('change', ()=>{
+    const v = parseFloat(document.getElementById('sipAmount').value);
+    if (v>0){ sipAmount = v; LS.set(SIP_KEY, sipAmount); }
+    renderMetals();
   });
 
   async function processLoadedJSON(jsonText, sourceLabel){

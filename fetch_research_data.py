@@ -15,6 +15,10 @@ history for more monthly/weekly pattern instances -- 4y is the sweet spot
 for fetch speed vs. daily/weekly pattern sample size; monthly patterns will
 have a noticeably smaller sample at 4y.)
 
+GOLD & SILVER TAB: the script also pulls GOLDBEES, SILVERBEES, COMEX gold/silver/copper
+futures, GLD, SLV, the US dollar index, the US 10-year yield and USD/INR (see METALS_CONTEXT
+near the top). Use --no-metals to skip them.
+
 NOTE ON "ORDER BOOK": unexecuted order backlog (relevant mainly for
 EPC/construction/capital-goods companies) isn't available through Yahoo
 Finance or any free API -- it's disclosed in company investor presentations
@@ -58,6 +62,22 @@ NSE_500_URLS = [
     "https://nsearchives.nseindia.com/content/indices/ind_nifty500list.csv",
     "https://archives.nseindia.com/content/indices/ind_nifty500list.csv",
 ]
+
+
+# Gold & silver context for the dashboard's "Gold & Silver" tab. Stored under underscore-prefixed
+# keys so they are never mixed into the stock universe. Edit tickers here if you hold different ETFs.
+METALS_CONTEXT = {
+    "_GOLDBEES":    "GOLDBEES.NS",   # Nippon India ETF Gold BeES (your holding)
+    "_SILVERBEES":  "SILVERBEES.NS", # Nippon India Silver ETF (your holding)
+    "_GOLD_FUT":    "GC=F",          # COMEX gold futures (global trend)
+    "_SILVER_FUT":  "SI=F",          # COMEX silver futures
+    "_GLD":         "GLD",           # SPDR Gold Shares (global ETF trading interest)
+    "_SLV":         "SLV",           # iShares Silver Trust
+    "_COPPER_FUT":  "HG=F",          # copper futures (industrial-demand proxy for silver)
+    "_DXY":         "DX-Y.NYB",      # US dollar index
+    "_US10Y":       "^TNX",          # US 10-year Treasury yield
+    "_USDINR":      "USDINR=X",      # rupee
+}
 
 
 def try_download_nifty500():
@@ -188,6 +208,7 @@ def main():
     parser.add_argument("--csv", help="path to a Symbol-column CSV")
     parser.add_argument("--out", default="research_data.json")
     parser.add_argument("--period", default="4y")
+    parser.add_argument("--no-metals", action="store_true", help="skip the gold/silver context series")
     args = parser.parse_args()
 
     try:
@@ -223,6 +244,15 @@ def main():
 
     if nifty_idx: data["_NIFTY_INDEX"] = nifty_idx
     if india_vix: data["_INDIA_VIX"] = india_vix
+
+    if not args.no_metals:
+        for key, tkr in METALS_CONTEXT.items():
+            print(f"Fetching {tkr} (gold/silver context) ...", end=" ", flush=True)
+            res = fetch_ticker(yf, tkr, period=args.period)
+            print("ok" if res else "failed")
+            if res:
+                data[key] = res
+            time.sleep(0.3)
 
     with open(args.out, "w") as f:
         json.dump({"generated": time.strftime("%Y-%m-%d %H:%M:%S"), "data": data}, f)

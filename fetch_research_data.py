@@ -15,6 +15,10 @@ history for more monthly/weekly pattern instances -- 4y is the sweet spot
 for fetch speed vs. daily/weekly pattern sample size; monthly patterns will
 have a noticeably smaller sample at 4y.)
 
+ADDING GOLD & SILVER TO AN EXISTING DATA FILE (no full re-fetch):
+    python fetch_research_data.py --metals-only
+refreshes just the index/VIX and gold/silver series inside research_data.json in about a minute.
+
 GOLD & SILVER TAB: the script also pulls GOLDBEES, SILVERBEES, COMEX gold/silver/copper
 futures, GLD, SLV, the US dollar index, the US 10-year yield and USD/INR (see METALS_CONTEXT
 near the top). Use --no-metals to skip them.
@@ -50,6 +54,7 @@ import time
 import urllib.request
 import csv
 import io
+import os
 from datetime import datetime, timezone
 
 NIFTY50 = ["RELIANCE","TCS","HDFCBANK","ICICIBANK","INFY","BHARTIARTL","ITC","SBIN","LT","HINDUNILVR",
@@ -146,16 +151,23 @@ def extract_events(info):
     }
 
 
+LAST_ERROR = {}   # ticker -> short reason for the most recent failure (recorded in the output file)
+
+
 def fetch_one(yf, symbol, period="4y", retries=3):
     return fetch_ticker(yf, f"{symbol}.NS", period, retries, want_fundamentals=True)
 
 
-def fetch_ticker(yf, ticker_str, period="4y", retries=3, want_fundamentals=False):
+def fetch_ticker(yf, ticker_str, period="4y", retries=3, want_fundamentals=False, retry_empty=False):
     ticker = yf.Ticker(ticker_str)
     for attempt in range(retries):
         try:
             df = ticker.history(period=period, interval="1d")
             if df.empty:
+                LAST_ERROR[ticker_str] = "Yahoo returned no data"
+                if retry_empty and attempt < retries - 1:
+                    time.sleep(2 * (attempt + 1))
+                    continue
                 return None
             df = df.dropna(subset=["Open", "High", "Low", "Close"])
             mcap = None
@@ -196,10 +208,34 @@ def fetch_ticker(yf, ticker_str, period="4y", retries=3, want_fundamentals=False
                 "events": events,
             }
         except Exception as e:
+            LAST_ERROR[ticker_str] = str(e)[:120]
             if attempt == retries - 1:
                 print(f"  x {ticker_str}: {e}")
                 return None
             time.sleep(2 * (attempt + 1))
+
+
+def fetch_context(yf, args, data):
+    """NIFTY index, India VIX and (unless --no-metals) the gold/silver series.
+    Fetched BEFORE the long stock loop so a throttled Yahoo can't silently drop them, with extra
+    retries; returns a per-ticker status record that is saved in the output file so the dashboard
+    can say exactly what worked."""
+    jobs = [("_NIFTY_INDEX", "^NSEI", "market"), ("_INDIA_VIX", "^INDIAVIX", "market")]
+    if not args.no_metals:
+        jobs += [(k, t, "gold/silver") for k, t in METALS_CONTEXT.items()]
+    status = {}
+    for key, tkr, kind in jobs:
+        print(f"Fetching {tkr} ({kind} context) ...", end=" ", flush=True)
+        res = fetch_ticker(yf, tkr, period=args.period, retries=5, retry_empty=True)
+        if res:
+            data[key] = res
+            status[key] = {"ticker": tkr, "ok": True, "bars": len(res["dates"])}
+            print(f"ok ({len(res['dates'])} sessions)")
+        else:
+            status[key] = {"ticker": tkr, "ok": False, "bars": 0, "error": LAST_ERROR.get(tkr, "unknown error")}
+            print(f"FAILED ({LAST_ERROR.get(tkr, 'unknown error')})")
+        time.sleep(0.3)
+    return status
 
 
 def main():
@@ -209,6 +245,8 @@ def main():
     parser.add_argument("--out", default="research_data.json")
     parser.add_argument("--period", default="4y")
     parser.add_argument("--no-metals", action="store_true", help="skip the gold/silver context series")
+    parser.add_argument("--metals-only", action="store_true",
+                        help="refresh ONLY the index/VIX and gold/silver series inside an existing data file (about a minute; no full re-fetch)")
     args = parser.parse_args()
 
     try:
@@ -217,10 +255,31 @@ def main():
         print("Missing dependency. Run: pip install yfinance pandas")
         sys.exit(1)
 
+    if args.metals_only:
+        if not os.path.exists(args.out):
+            print(f"{args.out} not found. Run the full fetch once first (python fetch_research_data.py), or run --metals-only from the folder that contains it.")
+            sys.exit(1)
+        with open(args.out) as f:
+            payload = json.load(f)
+        data = payload.get("data", payload)
+        args.no_metals = False
+        status = fetch_context(yf, args, data)
+        payload = {"generated": payload.get("generated", time.strftime("%Y-%m-%d %H:%M:%S")), "data": data,
+                   "context_status": status, "metals_refreshed": time.strftime("%Y-%m-%d %H:%M:%S")}
+        with open(args.out, "w") as f:
+            json.dump(payload, f)
+        bad = [v["ticker"] for v in status.values() if not v["ok"]]
+        print(f"\nUpdated {args.out}: {len(status)-len(bad)}/{len(status)} context series OK, stock data left untouched.")
+        if bad:
+            print("Failed: " + ", ".join(bad) + "  (see the reasons above; rerun in a few minutes if it looks like throttling)")
+        return
+
     symbols = get_universe(args)
-    print(f"Fetching {len(symbols)} symbols at period={args.period} (includes market cap lookup, slower) ...")
 
     data = {}
+    context_status = fetch_context(yf, args, data)
+
+    print(f"Fetching {len(symbols)} symbols at period={args.period} (includes market cap lookup, slower) ...")
     failed = []
     for i, sym in enumerate(symbols, 1):
         print(f"[{i}/{len(symbols)}] {sym} ...", end=" ", flush=True)
@@ -234,30 +293,15 @@ def main():
             print("failed")
         time.sleep(0.3)
 
-    print("Fetching NIFTY 50 index (market context) ...", end=" ", flush=True)
-    nifty_idx = fetch_ticker(yf, "^NSEI", period=args.period)
-    print("ok" if nifty_idx else "failed")
-
-    print("Fetching India VIX (market context) ...", end=" ", flush=True)
-    india_vix = fetch_ticker(yf, "^INDIAVIX", period=args.period)
-    print("ok" if india_vix else "failed")
-
-    if nifty_idx: data["_NIFTY_INDEX"] = nifty_idx
-    if india_vix: data["_INDIA_VIX"] = india_vix
-
-    if not args.no_metals:
-        for key, tkr in METALS_CONTEXT.items():
-            print(f"Fetching {tkr} (gold/silver context) ...", end=" ", flush=True)
-            res = fetch_ticker(yf, tkr, period=args.period)
-            print("ok" if res else "failed")
-            if res:
-                data[key] = res
-            time.sleep(0.3)
-
     with open(args.out, "w") as f:
-        json.dump({"generated": time.strftime("%Y-%m-%d %H:%M:%S"), "data": data}, f)
+        json.dump({"generated": time.strftime("%Y-%m-%d %H:%M:%S"), "data": data, "context_status": context_status}, f)
 
-    print(f"\nSaved {len(data)}/{len(symbols)} symbols to {args.out}")
+    n_stocks = len([k for k in data if not k.startswith("_")])
+    print(f"\nSaved {n_stocks}/{len(symbols)} stocks (+ {len(data)-n_stocks} context series) to {args.out}")
+    bad_ctx = [v["ticker"] for v in context_status.values() if not v["ok"]]
+    if bad_ctx:
+        print("Context series that FAILED (the Gold & Silver tab will be incomplete): " + ", ".join(bad_ctx))
+        print("  -> run  python fetch_research_data.py --metals-only  in a few minutes to retry just those.")
     if failed:
         print(f"Failed ({len(failed)}): {', '.join(failed)}")
     print("Now open research-dashboard.html and use 'Load data file' to select this JSON file.")

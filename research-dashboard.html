@@ -320,6 +320,8 @@
 (function(){
   let rawData = {}; // symbol -> {dates(Date[]),open,high,low,close,volume,marketCapCr}
   let generatedStamp = '';
+  let contextStatus = null;   // per-ticker fetch results for the index/VIX/gold/silver series (written by newer fetch scripts)
+  let metalsRefreshed = '';
   let universe = {}; // filtered by mcap
   let stockPatterns = {}; // symbol -> {D:[...],W:[...],M:[...]} evaluated instances
   let allPatternsFlat = []; // for cross-stock aggregation & pattern browsing
@@ -1853,6 +1855,28 @@
     ctx.fillStyle = '#c9d3da'; ctx.fillText('200-day', padL+94, 12);
   }
 
+  // Explains WHY the gold/silver series are missing, using the per-ticker record the fetch script writes.
+  function metalsDiagnosis(){
+    const present = Object.keys(rawData).filter(k=>k.startsWith('_')).map(k=>`${k.slice(1)} (${rawData[k].close.length} bars)`);
+    const stamp = generatedStamp ? `Data file fetched: ${generatedStamp}${metalsRefreshed?` &middot; gold/silver last refreshed: ${metalsRefreshed}`:''}.` : 'This data file has no fetch timestamp.';
+    const fix = `<div style="margin-top:6px;"><strong style="color:var(--ink);">Quick fix (about a minute &mdash; no need to re-fetch all stocks):</strong> make sure <code>fetch_research_data.py</code> is the latest version, then in the same folder as <code>research_data.json</code> run <code>python fetch_research_data.py --metals-only</code> and reload this page. Using GitHub Actions? Upload the new script to your repo first, then Actions &rarr; "Refresh Nifty Research Data" &rarr; Run workflow.</div>`;
+    let why;
+    if (!contextStatus){
+      why = `<strong style="color:var(--saffron);">Diagnosis: this file was built by an older version of the fetch script</strong> &mdash; it carries no gold/silver record at all, so the new script hasn't produced it yet.${fix}`;
+    } else {
+      const failed = Object.values(contextStatus).filter(v=>!v.ok);
+      const short = Object.entries(contextStatus).filter(([k,v])=>v.ok && v.bars<60).map(([k,v])=>`${v.ticker} (${v.bars} bars)`);
+      if (failed.length){
+        why = `<strong style="color:var(--saffron);">Diagnosis: the fetch ran, but Yahoo did not return these:</strong><br>${failed.map(v=>`&bull; <code>${v.ticker}</code> &mdash; ${v.error||'failed'}`).join('<br>')}<div style="margin-top:6px;">A "429 / Too Many Requests" or "no data" usually means Yahoo was throttling &mdash; wait a few minutes and retry. If one ticker keeps failing, check its symbol on finance.yahoo.com and edit <code>METALS_CONTEXT</code> near the top of the script.</div>${fix}`;
+      } else if (short.length){
+        why = `<strong style="color:var(--saffron);">Diagnosis: the series came back too short to analyse:</strong> ${short.join(', ')} (need at least 60 sessions).`;
+      } else {
+        why = `<strong style="color:var(--saffron);">Diagnosis: the fetch recorded success but the series aren't in the file</strong> &mdash; re-run it.${fix}`;
+      }
+    }
+    return `<div class="msg" style="line-height:1.7;margin-top:10px;">${stamp}<br>Market-context series in this file: ${present.length?present.join(', '):'none'}.</div><div class="msg" style="line-height:1.7;margin-top:8px;">${why}</div>`;
+  }
+
   function renderMetals(){
     const wrap = document.getElementById('metalsWrap');
     const sipEl = document.getElementById('sipAmount');
@@ -1862,7 +1886,7 @@
     const ratio = goldSilverRatio();
     const results = METAL_DEFS.map(d=>analyzeMetal(d, ratio)).filter(Boolean);
     if (!results.length){
-      wrap.innerHTML = `<div class="empty">Gold &amp; silver data isn't in your data file yet. Re-run <code>fetch_research_data.py</code> (or "Refresh data now") &mdash; it now also fetches GOLDBEES, SILVERBEES, COMEX futures, the dollar index, US 10-year yield, USD/INR, copper, GLD and SLV.</div>`;
+      wrap.innerHTML = `<div class="empty" style="padding-bottom:6px;">Gold &amp; silver data isn't in your data file yet.</div>${metalsDiagnosis()}`;
       document.getElementById('metalsStamp').textContent = '';
       return;
     }
@@ -1880,7 +1904,11 @@
 
     const missing = [];
     [['_GOLDBEES','GOLDBEES'],['_SILVERBEES','SILVERBEES'],['_GOLD_FUT','gold futures'],['_SILVER_FUT','silver futures'],['_GLD','GLD'],['_SLV','SLV'],['_COPPER_FUT','copper'],['_DXY','dollar index'],['_US10Y','US 10Y yield'],['_USDINR','USD/INR']]
-      .forEach(([k,l])=>{ if (!mSeries(k)) missing.push(l); });
+      .forEach(([k,l])=>{
+        if (mSeries(k)) return;
+        const st = contextStatus && contextStatus[k];
+        missing.push(l + (st && !st.ok ? ` (${st.error||'failed'})` : ''));
+      });
 
     const GROUPS = [['Trend','Trend'],['Entry','Entry zone — is today a good price to add?'],['Flows','Demand & flows'],['Macro','Macro drivers'],['Seasonal','Seasonal context']];
     const icon = t=> t>0 ? '<span class="ic pos">▲</span>' : t<0 ? '<span class="ic neg">▼</span>' : '<span class="ic" style="color:var(--ink-dim);">•</span>';
@@ -1934,7 +1962,7 @@
     wrap.innerHTML = `
       <div class="msg" style="margin-bottom:12px;line-height:1.6;"><strong style="color:var(--ink);">Outlook horizon: 3–6 months.</strong> Signals use the 50/200-day trend, 3- and 6-month momentum, weekly RSI, the 6-month range, 60-day volumes and 3-month macro moves &mdash; not day-to-day noise.</div>
       ${tiles.length ? `<div class="driver-grid">${tiles.join('')}</div>` : ''}
-      ${missing.length ? `<div class="msg" style="margin-bottom:10px;">Not in your data file yet: ${missing.join(', ')} &mdash; the related signals are skipped. Re-run the fetch script to include them.</div>` : ''}
+      ${missing.length ? `<div class="msg" style="margin-bottom:10px;">Not in your data file yet: ${missing.join(', ')} &mdash; the related signals are skipped. Retry with <code>python fetch_research_data.py --metals-only</code>.</div>` : ''}
       <div class="mg-grid">${cards}</div>
       <div class="why-group" style="margin-top:18px;"><h5>Not measured here — worth checking yourself</h5>
         <div class="msg" style="line-height:1.7;">Central-bank buying (World Gold Council reports) &middot; geopolitical tension and safe-haven flows &middot; the Fed's rate path and real (inflation-adjusted) yields &middot; changes to India's import duty or GST on gold and silver &middot; the ETF's premium or discount to NAV (iNAV) &middot; silver supply-deficit and industrial-demand news (Silver Institute).</div>
@@ -2655,6 +2683,8 @@
       const parsed = JSON.parse(jsonText);
       const src = parsed.data || parsed;
       generatedStamp = parsed.generated || '';
+      contextStatus = parsed.context_status || null;
+      metalsRefreshed = parsed.metals_refreshed || '';
       rawData = {};
       Object.keys(src).forEach(sym=>{
         const d = src[sym];

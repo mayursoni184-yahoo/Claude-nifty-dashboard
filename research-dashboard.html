@@ -121,6 +121,13 @@
   .why-item .d{color:var(--ink-dim);}
   .driver-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:16px;}
   .sip-table{margin-top:6px;}
+  .chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border:1px solid var(--line);border-radius:20px;font-size:12px;cursor:pointer;margin:0 6px 8px 0;background:var(--panel-2);}
+  .chip:hover{border-color:var(--saffron);}
+  .chip.on{border-color:var(--saffron);background:rgba(255,159,67,.12);}
+  tr.sec-row{cursor:pointer;}
+  tr.sec-row:hover{background:var(--panel-2);}
+  tr.sec-row.sel{background:rgba(255,159,67,.10);}
+  .sector-detail{margin-top:18px;}
 
   #marketContextBar{display:flex;gap:18px;flex-wrap:wrap;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 18px;margin-bottom:18px;}
   .mc-item{display:flex;flex-direction:column;}
@@ -185,6 +192,7 @@
         <div class="tab-btn" id="tabTracker">Pick tracker</div>
         <div class="tab-btn" id="tabLeaderboard">Pattern leaderboard</div>
         <div class="tab-btn" id="tabMetals">Gold &amp; Silver</div>
+        <div class="tab-btn" id="tabSectors">Sectors</div>
       </div>
 
       <div id="viewTopPicks">
@@ -308,11 +316,29 @@
         </div>
         <div id="metalsWrap"></div>
       </div>
+
+      <div id="viewSectors" style="display:none;">
+        <div class="controls-row">
+          <label>State</label>
+          <select id="secState">
+            <option value="ALL" selected>All states</option>
+            <option>Strong uptrend</option><option>Uptrend</option><option>Turning bullish</option><option>Cautious</option>
+            <option>Neutral</option><option>Weak</option><option>Turning bearish</option><option>Downtrend</option>
+          </select>
+          <label>Min stocks</label>
+          <select id="secMin"><option value="3">3</option><option value="4" selected>4</option><option value="6">6</option><option value="10">10</option></select>
+          <button class="secondary" id="secExportBtn">⬇ Export sectors</button>
+          <button class="secondary" id="secPicksBtn">⬇ Export picks (selected sector)</button>
+        </div>
+        <div id="sectorSummary"></div>
+        <div id="sectorTableWrap"></div>
+        <div id="sectorDetailWrap" class="sector-detail"></div>
+      </div>
     </div>
   </div>
 
   <div class="foot-note" id="footNote" style="display:none;">
-    Heuristic swing-pivot pattern detection, not a certified charting engine or investment advice &mdash; I'm not a licensed advisor. "Retest" checks whether price revisited the breakout level within a timeframe-scaled window; "support held" checks it didn't close back through that level in the following few sessions. "Successful/Failed" outcome is based on the 30-trading-day forward return relative to breakout direction, so very recent breakouts show "In Progress" until that window completes. Historical evidence stats aggregate every instance found across your loaded universe and history depth &mdash; small n means a rougher estimate, shown next to each stat. Target/Stop-loss use each pattern's own measured-move geometry where one exists, falling back to an ATR-based estimate otherwise (reversals, volume/OBV signals) -- these are mechanical projections, not guarantees; always sanity-check against the chart. The Top Picks conviction score is a weighted blend of recency, volume, relative strength, fundamentals, historical pattern success rate, and risk-reward -- it's a shortlist to start research from, not a buy signal. Accumulation/Distribution flag OBV-vs-price divergence over a rolling window and can lag real sentiment shifts. BUY/SELL labels show the direction of the pattern signal (bullish/bearish) &mdash; they are not personalised advice; "WATCH" marks a pattern that is still forming. The Gold &amp; Silver tab applies fixed rules to ETF/futures prices, volumes and macro series (dollar, US yields, rupee, copper) &mdash; it can't see news such as central-bank buying or geopolitics. Watchlist, tracked picks and sizing settings are saved in this browser only (localStorage) &mdash; they don't sync across devices, and a different address/port counts as a different browser. Results / ex-dividend dates come from Yahoo and are patchy or estimated for many Indian stocks &mdash; verify before relying on them. The position-size calculator is plain arithmetic on the numbers you enter, not advice. To keep the page responsive, at most the 8 most recent instances per stock/timeframe/pattern-type are kept -- "Occurrences" in Historical Evidence reflects that capped sample, not every instance in the full loaded history, which matters most for the frequently-firing Accumulation/Distribution/Volume Breakout signals. Data is a static snapshot from your last script run; see the script for scheduling it to refresh automatically each day.
+    Heuristic swing-pivot pattern detection, not a certified charting engine or investment advice &mdash; I'm not a licensed advisor. "Retest" checks whether price revisited the breakout level within a timeframe-scaled window; "support held" checks it didn't close back through that level in the following few sessions. "Successful/Failed" outcome is based on the 30-trading-day forward return relative to breakout direction, so very recent breakouts show "In Progress" until that window completes. Historical evidence stats aggregate every instance found across your loaded universe and history depth &mdash; small n means a rougher estimate, shown next to each stat. Target/Stop-loss use each pattern's own measured-move geometry where one exists, falling back to an ATR-based estimate otherwise (reversals, volume/OBV signals) -- these are mechanical projections, not guarantees; always sanity-check against the chart. The Top Picks conviction score is a weighted blend of recency, volume, relative strength, fundamentals, historical pattern success rate, and risk-reward -- it's a shortlist to start research from, not a buy signal. Accumulation/Distribution flag OBV-vs-price divergence over a rolling window and can lag real sentiment shifts. BUY/SELL labels show the direction of the pattern signal (bullish/bearish) &mdash; they are not personalised advice; "WATCH" marks a pattern that is still forming. The Sectors tab builds an equal-weight index per sector from the stocks you've loaded (not the official NSE sector indices) and applies fixed rules to it. The Gold &amp; Silver tab applies fixed rules to ETF/futures prices, volumes and macro series (dollar, US yields, rupee, copper) &mdash; it can't see news such as central-bank buying or geopolitics. Watchlist, tracked picks and sizing settings are saved in this browser only (localStorage) &mdash; they don't sync across devices, and a different address/port counts as a different browser. Results / ex-dividend dates come from Yahoo and are patchy or estimated for many Indian stocks &mdash; verify before relying on them. The position-size calculator is plain arithmetic on the numbers you enter, not advice. To keep the page responsive, at most the 8 most recent instances per stock/timeframe/pattern-type are kept -- "Occurrences" in Historical Evidence reflects that capped sample, not every instance in the full loaded history, which matters most for the frequently-firing Accumulation/Distribution/Volume Breakout signals. Data is a static snapshot from your last script run; see the script for scheduling it to refresh automatically each day.
   </div>
 </div>
 
@@ -1039,7 +1065,7 @@
       const result = await runPatternWorker(universe);
       stockPatterns = result.stockPatterns;
       allPatternsFlat = result.allPatternsFlat;
-      trackBase = null; leaderCache = null; metalsHistCache = {}; // invalidate cached analytics
+      trackBase = null; leaderCache = null; metalsHistCache = {}; sectorCache = null; // invalidate cached analytics
       // the worker's structured-clone round trip turns Date fields back into real Date objects
       // automatically, but breakoutDate/formedDate on each pattern need no further handling here.
     }catch(err){
@@ -1168,6 +1194,7 @@
     renderTopPicks();
     renderPatternTable();
     renderWatchlist();
+    if (document.getElementById('viewSectors').style.display==='block') renderSectors();
   }
   function updateStarButton(){
     const b = document.getElementById('watchToggle');
@@ -1971,6 +1998,360 @@
     results.forEach(r=>drawMetalChart(document.getElementById('chart-'+r.def.id), r.primary, r.cur));
   }
 
+  // ============================================================
+  // Sectors tab -- which Indian market sectors are in an uptrend, turning, or rolling over
+  // ============================================================
+  let sectorCache = null;
+  let secSort = {key:'score', dir:'desc'};
+  let selectedSector = null;
+
+  const SECTOR_STATES = ['Strong uptrend','Uptrend','Turning bullish','Cautious','Neutral','Weak','Turning bearish','Downtrend'];
+  const SECTOR_STATE_CLS = {'Strong uptrend':'excellent','Uptrend':'bullish','Turning bullish':'good','Cautious':'candidate','Neutral':'nopattern','Weak':'avg','Turning bearish':'warn','Downtrend':'bearish'};
+  const SECTOR_STATE_RANK = {'Strong uptrend':0,'Uptrend':1,'Turning bullish':2,'Cautious':3,'Neutral':4,'Weak':5,'Turning bearish':6,'Downtrend':7};
+  const SECTOR_STATE_NOTE = {
+    'Strong uptrend':'Broad, sustained strength across the sector. The leaders below are the natural place to look for picks.',
+    'Uptrend':'A healthy uptrend. Look for breakouts and pullbacks in the stronger stocks.',
+    'Turning bullish':'Improving from a weak base, so it is early. Favour stocks already breaking out, and watch that the improvement holds.',
+    'Cautious':'Still positive but losing steam. Be selective and prefer the relative leaders.',
+    'Neutral':'No clear direction at sector level, so nothing to favour or avoid on sector grounds.',
+    'Weak':'Below average. Only the strongest individual stocks deserve attention.',
+    'Turning bearish':'Deteriorating from a stronger position. Be wary of fresh entries and watch support levels on holdings.',
+    'Downtrend':'Persistent weakness. Generally poor ground for new buying; the weakest stocks may be flashing SELL signals.'
+  };
+  // NSE's own industry labels (Nifty 500 list) -> the sector names used on this tab
+  const NSE_SECTOR_MAP = {
+    'automobile and auto components':'Auto & Auto Components', 'capital goods':'Capital Goods', 'chemicals':'Chemicals',
+    'construction':'Construction & Infra', 'construction materials':'Cement & Construction Materials', 'consumer durables':'Consumer Durables',
+    'consumer services':'Consumer Services', 'diversified':'Diversified', 'fast moving consumer goods':'FMCG', 'financial services':'Financial Services',
+    'forest materials':'Paper & Forest Materials', 'healthcare':'Healthcare & Pharma', 'information technology':'IT',
+    'media entertainment & publication':'Media & Entertainment', 'metals & mining':'Metals & Mining', 'oil gas & consumable fuels':'Oil & Gas',
+    'power':'Power & Utilities', 'realty':'Realty', 'services':'Services & Logistics', 'telecommunication':'Telecom', 'textiles':'Textiles'
+  };
+
+  // Fallback when a stock has no NSE industry label: group Yahoo's industry text into the same sector names (approximate)
+  function yahooBucket(sector, industry){
+    const s = (sector||'').toLowerCase(), i = (industry||'').toLowerCase();
+    if (!s && !i) return null;
+    if (/\bbank/.test(i)) return 'Banks';
+    if (/consumer electronics|appliances|furnishings|household durable|home improvement/.test(i)) return 'Consumer Durables';
+    if (/\bsoftware|information technology|\bit services\b|semiconductor|data processing|internet content|computer hardware|communication equipment|electronic components|scientific & technical/.test(i) || s==='technology') return 'IT';
+    if (/utilities - regulated gas/.test(i)) return 'Oil & Gas';
+    if (/utilities/.test(i) || s==='utilities') return 'Power & Utilities';
+    if (/\bcoal\b|\boil\b|\bgas\b|petroleum|refining|pipeline|energy/.test(i) || s==='energy') return 'Oil & Gas';
+    if (/\bsteel\b|aluminum|aluminium|\bcopper\b|\bmetals?\b|\bmining\b|\bgold\b|\bsilver\b|\biron\b|\bzinc\b/.test(i)) return 'Metals & Mining';
+    if (/\bdrug|pharma|biotech|diagnostic|medical|\bhealth|hospital|life sciences/.test(i) || s==='healthcare') return 'Healthcare & Pharma';
+    if (/\bauto\b|\bautos\b|vehicle|motorcycle|\btrucks?\b|\btires?\b|\btyres?\b/.test(i)) return 'Auto & Auto Components';
+    if (/residential construction|real estate|\breit\b/.test(i) || s==='real estate') return 'Realty';
+    if (/telecom/.test(i)) return 'Telecom';
+    if (/entertainment|broadcast|publishing|advertising|\bmedia\b|movies/.test(i)) return 'Media & Entertainment';
+    if (/cement|building materials|construction materials|lumber|\bglass\b/.test(i)) return 'Cement & Construction Materials';
+    if (/\bpaper\b|\bforest|packaging/.test(i)) return 'Paper & Forest Materials';
+    if (/chemical|agricultural inputs|fertili|pesticide/.test(i)) return 'Chemicals';
+    if (/engineering & construction|infrastructure|construction/.test(i)) return 'Construction & Infra';
+    if (/machinery|electrical equipment|aerospace|defense|industrial|\btools\b|metal fabrication|conglomerate|farm & heavy|pollution|\bwaste\b|business equipment|security/.test(i)) return 'Capital Goods';
+    if (/airline|shipping|marine|railroad|logistics|freight|airport|trucking/.test(i)) return 'Services & Logistics';
+    if (/textile|apparel manufacturing|footwear|leather/.test(i)) return 'Textiles';
+    if (/insurance|asset management|capital markets|credit services|financial|mortgage|exchange|brokerage/.test(i) || s==='financial services') return 'Financial Services';
+    if (s==='consumer defensive' || /packaged foods|beverage|tobacco|household & personal|\bfood|grocery|confection|farm products|personal products/.test(i)) return 'FMCG';
+    if (s==='consumer cyclical' || /retail|restaurant|hotel|resort|lodging|leisure|travel|education|gambling|luxury|personal services/.test(i)) return 'Consumer Services';
+    if (s==='communication services') return 'Media & Entertainment';
+    if (s==='industrials') return 'Capital Goods';
+    if (s==='basic materials') return 'Chemicals';
+    return null;
+  }
+  function classifySector(sym){
+    const d = rawData[sym] || {};
+    const f = d.fundamentals || {};
+    const yInd = f.industry || '', ySec = f.sector || '';
+    if (d.nseIndustry){
+      let sector = NSE_SECTOR_MAP[String(d.nseIndustry).toLowerCase()] || d.nseIndustry;
+      if (sector==='Financial Services' && /bank/i.test(yInd)) sector = 'Banks';   // NSE lumps banks into Financial Services; split them out
+      return {sector, src:'nse'};
+    }
+    const y = yahooBucket(ySec, yInd);
+    return y ? {sector:y, src:'yahoo'} : {sector:'Unclassified', src:'none'};
+  }
+
+  const clip1 = x=> Math.max(-1, Math.min(1, x));
+  function avgRange(S, idx, n){ if (idx<n-1) return null; let s=0; for (let i=idx-n+1;i<=idx;i++) s+=S[i]; return s/n; }
+
+  // equal-weight index of a sector's stocks (daily returns averaged across whichever stocks traded that day)
+  function sectorEqIndex(syms){
+    const acc = new Map();
+    syms.forEach(sym=>{
+      const d = universe[sym], c = d.close, t = d.dates;
+      for (let i=1;i<c.length;i++){
+        if (!(c[i-1]>0)) continue;
+        let r = c[i]/c[i-1]-1;
+        if (r>0.25) r=0.25; else if (r<-0.25) r=-0.25;    // ignore data glitches
+        const k = t[i].getTime(), e = acc.get(k);
+        if (e){ e[0]+=r; e[1]++; } else acc.set(k,[r,1]);
+      }
+    });
+    const times = Array.from(acc.keys()).sort((a,b)=>a-b);
+    const minCnt = Math.min(3, syms.length);
+    const dates = [], close = []; let lvl = 100;
+    times.forEach(k=>{ const e = acc.get(k); if (e[1]<minCnt) return; lvl *= 1+e[0]/e[1]; dates.push(new Date(k)); close.push(lvl); });
+    return {dates, close};
+  }
+
+  // Trend score (-100..+100) for a sector as it stood `o` sessions ago. Components: structure of the equal-weight
+  // index vs its 50/200-day averages (30%), 1m/3m momentum (20%), breadth - share of stocks above their own
+  // 50/200-day averages (30%), and 3-month strength versus the Nifty (20%).
+  function sectorMetricsAt(sec, o, pre, nifty){
+    const S = sec.index.close, idx = S.length-1-o;
+    if (idx<200) return null;
+    const last = S[idx], m50 = avgRange(S,idx,50), m200 = avgRange(S,idx,200);
+    const r1 = idx>=21 ? (last/S[idx-21]-1)*100 : null;
+    const r3 = idx>=63 ? (last/S[idx-63]-1)*100 : null;
+    const r6 = idx>=126 ? (last/S[idx-126]-1)*100 : null;
+    let rs3 = null;
+    if (nifty && r3!=null){ const ni = nifty.close.length-1-o; if (ni>=63) rs3 = r3 - (nifty.close[ni]/nifty.close[ni-63]-1)*100; }
+    let a50=0, n50=0, a200=0, n200=0;
+    sec.syms.forEach(sym=>{
+      const p = pre[sym], j = p.n-1-o; if (j<0) return;
+      const cl = p.close[j];
+      if (p.s50[j]!=null){ n50++; if (cl>p.s50[j]) a50++; }
+      if (p.s200[j]!=null){ n200++; if (cl>p.s200[j]) a200++; }
+    });
+    const b50 = n50 ? a50/n50*100 : null, b200 = n200 ? a200/n200*100 : null;
+    const T = ((last>m50?1:-1)+(last>m200?1:-1)+(m50>m200?1:-1))/3;
+    const M = ((r3==null?0:(r3>4?1:r3<-4?-1:0)) + (r1==null?0:(r1>2?1:r1<-2?-1:0)))/2;
+    const B = ((b50==null?0:clip1((b50-50)/25)) + (b200==null?0:clip1((b200-50)/25)))/2;
+    const R = rs3==null ? 0 : clip1(rs3/6);
+    return {score:100*(0.30*T+0.20*M+0.30*B+0.20*R), T, M, B, R, last, m50, m200, r1, r3, r6, rs3, b50, b200};
+  }
+
+  // s0 = score now, s1 = a month ago (21 sessions), s3 = three months ago (63 sessions)
+  function sectorStateOf(s0, s1, s3){
+    const prev = [s1,s3].filter(x=>x!=null);
+    const prevLow = prev.length ? Math.min.apply(null,prev) : null, prevHigh = prev.length ? Math.max.apply(null,prev) : null;
+    const d1 = s1!=null ? s0-s1 : 0;
+    if (s0>=55 && s1!=null && s1>=25 && (s3==null || s3>=0)) return 'Strong uptrend';
+    if (prevLow!=null && prevLow<=-15 && s0>=0 && s0-prevLow>=30) return 'Turning bullish';
+    if (prevHigh!=null && prevHigh>=15 && s0<=0 && prevHigh-s0>=30) return 'Turning bearish';
+    if (s0>=25 && d1>-20) return 'Uptrend';
+    if (s0>=0 && (d1<=-20 || (s0<25 && s1!=null && s1>=25))) return 'Cautious';
+    if (s0<=-25) return 'Downtrend';
+    if (s0<=-10) return 'Weak';
+    return 'Neutral';
+  }
+
+  // most recent confirmed daily pattern for a stock, with how many sessions ago it broke out
+  function recentSignal(sym){
+    const perTF = stockPatterns[sym];
+    if (!perTF || !universe[sym]) return null;
+    let best = null;
+    (perTF.D||[]).forEach(p=>{ if (p.breakoutIdx!=null && p.dailyIdx!=null && (!best || p.dailyIdx>best.dailyIdx)) best = p; });
+    if (!best) return null;
+    const sig = signalOf(best);
+    return (sig==='BUY' || sig==='SELL') ? {p:best, bars:universe[sym].close.length-1-best.dailyIdx, sig} : null;
+  }
+
+  function buildSectorAnalysis(){
+    const nifty = (rawData['_NIFTY_INDEX'] && rawData['_NIFTY_INDEX'].close.length>130) ? rawData['_NIFTY_INDEX'] : null;
+    const groups = {}, src = {nse:0, yahoo:0, none:0}, pre = {};
+    Object.keys(universe).forEach(sym=>{
+      const d = universe[sym];
+      if (!d.close || d.close.length<80) return;
+      const r = classifySector(sym);
+      (groups[r.sector] = groups[r.sector] || []).push(sym);
+      src[r.src]++;
+      pre[sym] = {n:d.close.length, close:d.close, s50:smaSeries(d.close,50), s200:smaSeries(d.close,200)};
+    });
+    const niftyR3 = nifty ? retPct(nifty.close,63) : null;
+    const sectors = Object.keys(groups).filter(n=>n!=='Unclassified').map(name=>{
+      const syms = groups[name];
+      const sec = {sector:name, syms, index: sectorEqIndex(syms)};
+      const m0 = sectorMetricsAt(sec,0,pre,nifty), m1 = sectorMetricsAt(sec,21,pre,nifty), m3 = sectorMetricsAt(sec,63,pre,nifty);
+      sec.m0 = m0; sec.s0 = m0 ? m0.score : null; sec.s1 = m1 ? m1.score : null; sec.s3 = m3 ? m3.score : null;
+      sec.state = m0 ? sectorStateOf(sec.s0, sec.s1, sec.s3) : null;
+      let buys=0, sells=0;
+      syms.forEach(sym=>{ const r = recentSignal(sym); if (r && r.bars<=10){ if (r.sig==='BUY') buys++; else sells++; } });
+      sec.buys = buys; sec.sells = sells;
+      return sec;
+    }).filter(s=>s.m0);
+    return {sectors, src, pre, niftyR3, unclassified: (groups['Unclassified']||[]).length};
+  }
+
+  // stocks of one sector ranked by a "sector pick" score: trend 30%, strength vs Nifty 25%, momentum 15%, recent signal 15%, fundamentals 15%
+  function sectorPicks(sec, an){
+    return sec.syms.map(sym=>{
+      const d = universe[sym], p = an.pre[sym], n = p.n, c = d.close, last = c[n-1];
+      const r1 = retPct(c,21), r3 = retPct(c,63);
+      const rs3 = (r3!=null && an.niftyR3!=null) ? r3-an.niftyR3 : null;
+      const s50 = p.s50[n-1], s200 = p.s200[n-1];
+      const a50 = s50!=null && last>s50, a200 = s200!=null && last>s200, g = s50!=null && s200!=null && s50>s200;
+      const sig = recentSignal(sym);
+      const f = computeFundamentals(sym);
+      const trendPts = ((a50?1:0)+(a200?1:0)+(g?1:0))/3*100;
+      const rsPts = rs3==null ? 50 : clamp100(50+rs3*2.5);
+      const momPts = 0.4*(r1==null?50:clamp100(50+r1*2)) + 0.6*(r3==null?50:clamp100(50+r3*1.2));
+      let patPts = 50;
+      if (sig){
+        if (sig.sig==='BUY') patPts = sig.bars<=10 ? 100 : sig.bars<=20 ? 70 : 50;
+        else patPts = sig.bars<=10 ? 0 : sig.bars<=20 ? 30 : 50;
+      }
+      const fundPts = f.overall==null ? 50 : f.overall;
+      const score = 0.30*trendPts + 0.25*rsPts + 0.15*momPts + 0.15*patPts + 0.15*fundPts;
+      return {sym, mcap:d.marketCapCr, last, r1, r3, rs3, a50, a200, g, sig, f, score};
+    }).sort((a,b)=>b.score-a.score);
+  }
+
+  function toneIcon(t){ return t>0 ? '<span class="ic pos">▲</span>' : t<0 ? '<span class="ic neg">▼</span>' : '<span class="ic" style="color:var(--ink-dim);">•</span>'; }
+
+  function sectorReasons(sec){
+    const m = sec.m0, pc = v=>fmtPct(v), out = [];
+    out.push({tone:m.T>=0.5?1:m.T<=-0.5?-1:0, title:'Trend structure',
+      detail:`The sector index is ${m.last>m.m50?'above':'below'} its 50-day and ${m.last>m.m200?'above':'below'} its 200-day average, and the 50-day is ${m.m50>m.m200?'above':'below'} the 200-day`});
+    out.push({tone:m.M>=0.5?1:m.M<=-0.5?-1:0, title:`Momentum ${pc(m.r3)} over 3 months`, detail:`${pc(m.r1)} over 1 month and ${pc(m.r6)} over 6 months`});
+    out.push({tone:m.B>=0.4?1:m.B<=-0.4?-1:0, title:'Breadth',
+      detail:`${m.b50==null?'n/a':m.b50.toFixed(0)}% of its stocks are above their own 50-day average and ${m.b200==null?'n/a':m.b200.toFixed(0)}% above their 200-day`});
+    if (m.rs3!=null) out.push({tone:m.R>=0.5?1:m.R<=-0.5?-1:0, title:m.rs3>=0?'Outperforming the Nifty':'Lagging the Nifty', detail:`${pc(m.rs3)} versus the Nifty 50 over 3 months`});
+    const fmt = x=> x==null ? 'n/a' : (x>=0?'+':'')+x.toFixed(0);
+    const chg = sec.s1!=null ? sec.s0-sec.s1 : null;
+    out.push({tone: chg==null?0:(chg>=15?1:chg<=-15?-1:0), title:'Score over time',
+      detail:`3 months ago ${fmt(sec.s3)} → 1 month ago ${fmt(sec.s1)} → now ${fmt(sec.s0)} (scale −100 to +100)`});
+    out.push({tone: sec.buys>sec.sells?1:sec.sells>sec.buys?-1:0, title:'Recent breakouts',
+      detail:`${sec.buys} stock${sec.buys===1?'':'s'} with a bullish breakout and ${sec.sells} with a bearish one in the last 10 sessions`});
+    return out;
+  }
+
+  const SEC_COLS = [
+    {key:'sector', label:'Sector',          val:s=>s.sector, text:true},
+    {key:'state',  label:'State',           val:s=>SECTOR_STATE_RANK[s.state]},
+    {key:'score',  label:'Score',           val:s=>s.s0},
+    {key:'d1',     label:'Δ 1m',            val:s=>s.s1==null?null:s.s0-s.s1},
+    {key:'d3',     label:'Δ 3m',            val:s=>s.s3==null?null:s.s0-s.s3},
+    {key:'n',      label:'Stocks',          val:s=>s.syms.length},
+    {key:'r1',     label:'1m',              val:s=>s.m0.r1},
+    {key:'r3',     label:'3m',              val:s=>s.m0.r3},
+    {key:'rs3',    label:'vs Nifty (3m)',   val:s=>s.m0.rs3},
+    {key:'b50',    label:'Above 50-day',    val:s=>s.m0.b50},
+    {key:'b200',   label:'Above 200-day',   val:s=>s.m0.b200},
+    {key:'buys',   label:'Buy signals',     val:s=>s.buys},
+    {key:'sells',  label:'Sell signals',    val:s=>s.sells}
+  ];
+  const fmtScore = v=> v==null ? '—' : (v>=0?'+':'')+v.toFixed(0);
+  const fmtDelta = v=> v==null ? '—' : (v>=0?'▲ +':'▼ ')+v.toFixed(0);
+
+  function getSectorAnalysis(){
+    let an = sectorCache;
+    if (!an){
+      an = buildSectorAnalysis();
+      if (Object.keys(stockPatterns).length) sectorCache = an;   // don't cache a half-ready view while the pattern scan is still running
+    }
+    return an;
+  }
+  function visibleSectors(an){
+    const stF = document.getElementById('secState').value;
+    const minN = parseInt(document.getElementById('secMin').value,10) || 4;
+    const eligible = an.sectors.filter(s=>s.syms.length>=minN);
+    const col = SEC_COLS.find(c=>c.key===secSort.key) || SEC_COLS[2];
+    return {eligible, rows: sortItems(eligible.filter(s=>stF==='ALL' || s.state===stF), col, secSort.dir)};
+  }
+
+  function renderSectors(){
+    const wrap = document.getElementById('sectorTableWrap'), sum = document.getElementById('sectorSummary'), det = document.getElementById('sectorDetailWrap');
+    if (!Object.keys(universe).length){ wrap.innerHTML = '<div class="empty">Load data to see sector trends.</div>'; sum.innerHTML=''; det.innerHTML=''; return; }
+    const an = getSectorAnalysis();
+    const stF = document.getElementById('secState').value;
+    const {eligible, rows} = visibleSectors(an);
+
+    const counts = {}; SECTOR_STATES.forEach(st=>counts[st]=0); eligible.forEach(s=>counts[s.state]++);
+    const srcNote = an.src.nse===0
+      ? `Sectors are grouped from Yahoo's industry text (${an.src.yahoo} stocks${an.unclassified?`, ${an.unclassified} unclassified`:''}). For NSE's own classification run <code>python fetch_research_data.py --sectors-only</code>.`
+      : `Sector source: NSE industry for ${an.src.nse} stocks${an.src.yahoo?`, Yahoo industry text for ${an.src.yahoo}`:''}${an.unclassified?`; ${an.unclassified} unclassified (not ranked)`:''}.`;
+    sum.innerHTML = `
+      <div style="margin-bottom:4px;">
+        <span class="chip ${stF==='ALL'?'on':''}" data-state="ALL">All sectors <strong>${eligible.length}</strong></span>
+        ${SECTOR_STATES.map(st=>`<span class="chip ${stF===st?'on':''}" data-state="${st}"><span class="badge ${SECTOR_STATE_CLS[st]}">${st}</span> <strong>${counts[st]}</strong></span>`).join('')}
+      </div>
+      <div class="msg" style="margin-bottom:10px;line-height:1.6;">${srcNote}</div>`;
+
+    if (!rows.length){
+      wrap.innerHTML = `<div class="empty">${eligible.length ? 'No sector is in that state right now.' : 'No sector has enough stocks yet — lower "Min stocks" or loosen the market-cap filter.'}</div>`;
+      det.innerHTML = '';
+      return;
+    }
+    if (!selectedSector || !rows.some(s=>s.sector===selectedSector)) selectedSector = rows[0].sector;
+
+    wrap.innerHTML = `<table>
+      <thead><tr>${SEC_COLS.map(c=>`<th class="sortable" data-key="${c.key}">${c.label}<span class="arrow">${secSort.key===c.key?(secSort.dir==='asc'?'▲':'▼'):''}</span></th>`).join('')}</tr></thead>
+      <tbody>${rows.map(s=>`
+        <tr class="sec-row ${s.sector===selectedSector?'sel':''}" data-sector="${s.sector}">
+          <td><strong>${s.sector}</strong></td>
+          <td><span class="badge ${SECTOR_STATE_CLS[s.state]}">${s.state}</span></td>
+          <td class="${pctClass(s.s0)}">${fmtScore(s.s0)}</td>
+          <td class="${pctClass(s.s1==null?null:s.s0-s.s1)}">${fmtDelta(s.s1==null?null:s.s0-s.s1)}</td>
+          <td class="${pctClass(s.s3==null?null:s.s0-s.s3)}">${fmtDelta(s.s3==null?null:s.s0-s.s3)}</td>
+          <td>${s.syms.length}</td>
+          <td class="${pctClass(s.m0.r1)}">${fmtPct(s.m0.r1)}</td>
+          <td class="${pctClass(s.m0.r3)}">${fmtPct(s.m0.r3)}</td>
+          <td class="${pctClass(s.m0.rs3)}">${fmtPct(s.m0.rs3)}</td>
+          <td>${s.m0.b50==null?'—':s.m0.b50.toFixed(0)+'%'}</td>
+          <td>${s.m0.b200==null?'—':s.m0.b200.toFixed(0)+'%'}</td>
+          <td class="pos">${s.buys}</td>
+          <td class="neg">${s.sells}</td>
+        </tr>`).join('')}</tbody></table>
+      <div class="msg" style="line-height:1.6;margin-top:8px;">Click a sector for the reasons behind its state and its stocks ranked as picks. "Score" runs from −100 to +100; Δ shows how it has changed over 1 and 3 months, which is how "turning" states are spotted. A sector sitting close to a cut-off (for example a score near 25 or 55) can flip state from one day to the next, so look at the score and its change, not just the label.</div>`;
+
+    renderSectorDetail(rows.find(s=>s.sector===selectedSector), an);
+  }
+
+  function renderSectorDetail(sec, an){
+    const det = document.getElementById('sectorDetailWrap');
+    if (!sec){ det.innerHTML=''; return; }
+    const picks = sectorPicks(sec, an);
+    const reasons = sectorReasons(sec);
+    const CAP = 150;
+    const weakSector = ['Weak','Turning bearish','Downtrend'].includes(sec.state);
+    det.innerHTML = `
+      <div class="metal-card">
+        <div class="mc-head">
+          <div><h3>${sec.sector}</h3><div class="sub">${sec.syms.length} stocks &middot; equal-weight index of your loaded universe</div></div>
+          <span class="badge ${SECTOR_STATE_CLS[sec.state]} verdict">${sec.state}</span>
+        </div>
+        <div class="mc-stance">${SECTOR_STATE_NOTE[sec.state]}</div>
+        <div class="mc-scores">Score ${fmtScore(sec.s0)} / 100 &middot; ${sec.buys} bullish and ${sec.sells} bearish breakouts in the last 10 sessions</div>
+        <canvas id="sector-chart" style="margin-top:12px;"></canvas>
+        <div class="msg" style="margin:6px 0 0;">▲ supportive &middot; ▼ headwind &middot; • neutral</div>
+        <div class="why-group"><h5>Why it reads ${sec.state.toLowerCase()}</h5>
+          ${reasons.map(r=>`<div class="why-item">${toneIcon(r.tone)}<div><span class="t">${r.title}.</span> <span class="d">${r.detail}</span></div></div>`).join('')}
+        </div>
+        <div class="why-group"><h5>${weakSector ? 'Relative leaders in a weak sector — treat with care' : 'Picks in this sector'}</h5>
+          <div class="msg" style="margin-bottom:6px;">Ranked by trend (30%), strength vs Nifty (25%), momentum (15%), a recent breakout signal (15%) and fundamentals (15%). Click a row to research the stock.</div>
+          <table>
+            <thead><tr><th>★</th><th>Stock</th><th>Mcap (Cr)</th><th>Price</th><th>1m</th><th>3m</th><th>vs Nifty (3m)</th><th>Trend</th><th>Latest signal</th><th>Fundamentals</th><th>Score</th></tr></thead>
+            <tbody>${picks.slice(0,CAP).map((p,i)=>`
+              <tr class="clickable" data-sym="${p.sym}">
+                <td class="star-cell" data-star="${p.sym}">${isWatched(p.sym)?'★':'☆'}</td>
+                <td>${i<3 && !weakSector ? '<strong>' : ''}${p.sym}${i<3 && !weakSector ? '</strong>' : ''} ${eventBadges(p.sym)}</td>
+                <td>${p.mcap?p.mcap.toLocaleString():'—'}</td>
+                <td>${fmtPrice(p.last)}</td>
+                <td class="${pctClass(p.r1)}">${fmtPct(p.r1)}</td>
+                <td class="${pctClass(p.r3)}">${fmtPct(p.r3)}</td>
+                <td class="${pctClass(p.rs3)}">${fmtPct(p.rs3)}</td>
+                <td><span class="${p.a50?'pos':'neg'}">${p.a50?'▲':'▼'}50d</span> <span class="${p.a200?'pos':'neg'}">${p.a200?'▲':'▼'}200d</span></td>
+                <td>${p.sig && p.sig.bars<=30 ? `${p.sig.p.type} ${signalBadge(p.sig.p)} <span class="msg">${p.sig.bars}d ago</span>` : '<span class="msg">—</span>'}</td>
+                <td><span class="badge ${p.f.overallCls}">${p.f.overallLabel}</span></td>
+                <td><strong>${p.score.toFixed(0)}</strong></td>
+              </tr>`).join('')}</tbody>
+          </table>
+          ${picks.length>CAP?`<div class="msg">Showing the top ${CAP} of ${picks.length}.</div>`:''}
+        </div>
+        <div class="msg" style="line-height:1.6;margin-top:10px;">The sector line is an equal-weight index of the stocks in your loaded universe (market-cap filter applied), not the official NSE sector index. States come from fixed rules on trend, momentum, breadth and relative strength; thresholds are mine, and a "turning" state is a change in score over 1&ndash;3 months, not a forecast. A decision aid, not advice.</div>
+      </div>`;
+    drawMetalChart(document.getElementById('sector-chart'), sec.index, '');
+  }
+
+  function openSector(name){
+    selectedSector = name;
+    document.getElementById('secState').value = 'ALL';
+    document.getElementById('secMin').value = '3';
+    document.getElementById('tabSectors').click();
+  }
+
   // ---------- Buy / Sell signal helpers ----------
   // BUY = bullish setup (price expected to rise), SELL = bearish setup (price expected to fall).
   // Confirmed breakouts show BUY/SELL; patterns still forming show WATCH with a direction arrow.
@@ -2232,6 +2613,7 @@
     const volRatio = curD ? volumeRatio(daily, curD.breakoutIdx, 20) : null;
     const levels = nearestLevels(daily, 120);
     const nextRes = upcomingEvents(sym).find(e=>e.label==='Results');
+    const secName = classifySector(sym).sector;
     const keyLevelRow = curD && curD.level
       ? `<div class="kv"><span class="k">${curD.levelType==='support'?'Support being tested':'Resistance being tested'}</span><span class="v">₹${curD.level.toFixed(2)} (${(((last-curD.level)/curD.level)*100).toFixed(1)}% away)</span></div>`
       : '';
@@ -2239,7 +2621,7 @@
     wrap.innerHTML = `
       <div class="stock-head">
         <h3>${sym} <button class="star-btn ${isWatched(sym)?'on':''}" id="watchToggle" data-sym="${sym}">${isWatched(sym)?'★ Watching':'☆ Watch'}</button> ${eventBadges(sym)}</h3>
-        <span class="sub">₹${last.toFixed(2)} &middot; mcap ₹${daily.marketCapCr?daily.marketCapCr.toLocaleString():'—'} Cr &middot; RS vs Nifty (1m/3m): <span class="${pctClass(daily.rs1m)}">${fmtPct(daily.rs1m)}</span> / <span class="${pctClass(daily.rs3m)}">${fmtPct(daily.rs3m)}</span> &middot; avg daily turnover ₹${daily.avgDailyTurnoverCr?daily.avgDailyTurnoverCr.toFixed(1):'—'} Cr &middot; ${fmtDate(daily.dates[daily.dates.length-1])}${nextRes?` &middot; next results ${nextRes.iso} (${nextRes.days}d, Yahoo estimate)`:''}</span>
+        <span class="sub">${secName!=='Unclassified' ? `<span class="sym-link" data-sector="${secName}" title="Open this sector">${secName}</span> &middot; ` : ''}₹${last.toFixed(2)} &middot; mcap ₹${daily.marketCapCr?daily.marketCapCr.toLocaleString():'—'} Cr &middot; RS vs Nifty (1m/3m): <span class="${pctClass(daily.rs1m)}">${fmtPct(daily.rs1m)}</span> / <span class="${pctClass(daily.rs3m)}">${fmtPct(daily.rs3m)}</span> &middot; avg daily turnover ₹${daily.avgDailyTurnoverCr?daily.avgDailyTurnoverCr.toFixed(1):'—'} Cr &middot; ${fmtDate(daily.dates[daily.dates.length-1])}${nextRes?` &middot; next results ${nextRes.iso} (${nextRes.days}d, Yahoo estimate)`:''}</span>
       </div>
       <div id="tvChartContainer" style="height:500px;margin-bottom:18px;border:1px solid var(--line);border-radius:8px;overflow:hidden;"></div>
       <div class="tf-grid">
@@ -2555,7 +2937,8 @@
     {btn:'tabWatchlist',   view:'viewWatchlist',   onShow: renderWatchlist},
     {btn:'tabTracker',     view:'viewTracker',     onShow: renderTracker},
     {btn:'tabLeaderboard', view:'viewLeaderboard', onShow: renderLeaderboard},
-    {btn:'tabMetals',      view:'viewMetals',      onShow: renderMetals}
+    {btn:'tabMetals',      view:'viewMetals',      onShow: renderMetals},
+    {btn:'tabSectors',     view:'viewSectors',     onShow: renderSectors}
   ];
   TABS.forEach(t=>{
     document.getElementById(t.btn).addEventListener('click', ()=>{
@@ -2671,6 +3054,54 @@
     renderLeaderboard();
   });
 
+  // ---------- Sectors ----------
+  ['secState','secMin'].forEach(id=>document.getElementById(id).addEventListener('change', renderSectors));
+  document.getElementById('sectorSummary').addEventListener('click', (e)=>{
+    const ch = e.target.closest('[data-state]');
+    if (!ch) return;
+    document.getElementById('secState').value = ch.dataset.state;
+    renderSectors();
+  });
+  document.getElementById('sectorTableWrap').addEventListener('click', (e)=>{
+    const th = e.target.closest('th.sortable');
+    if (th){
+      const k = th.dataset.key;
+      if (secSort.key===k) secSort.dir = secSort.dir==='asc' ? 'desc' : 'asc';
+      else { const cd = SEC_COLS.find(c=>c.key===k); secSort = {key:k, dir: (cd && (cd.text || k==='state')) ? 'asc' : 'desc'}; }
+      renderSectors();
+      return;
+    }
+    const tr = e.target.closest('tr[data-sector]');
+    if (tr){ selectedSector = tr.dataset.sector; renderSectors(); }
+  });
+  document.getElementById('sectorDetailWrap').addEventListener('click', (e)=>{
+    const star = e.target.closest('[data-star]');
+    if (star){ toggleWatch(star.dataset.star); return; }
+    const tr = e.target.closest('tr[data-sym]');
+    if (tr) openStock(tr.dataset.sym);
+  });
+  document.getElementById('stockDetailWrap').addEventListener('click', (e)=>{
+    const s = e.target.closest('[data-sector]');
+    if (s) openSector(s.dataset.sector);
+  });
+  document.getElementById('secExportBtn').addEventListener('click', ()=>{
+    if (!Object.keys(universe).length) return;
+    const {rows} = visibleSectors(getSectorAnalysis());
+    const header = ['Sector','State','Score','Change vs 1m ago','Change vs 3m ago','Stocks','1m return %','3m return %','vs Nifty 3m %','% above 50-day','% above 200-day','Bullish breakouts (10d)','Bearish breakouts (10d)'];
+    const f1 = v=> v==null ? '' : v.toFixed(1);
+    downloadCSV('sectors_'+localISO(new Date())+'.csv', header, rows.map(s=>[s.sector, s.state, f1(s.s0), s.s1==null?'':f1(s.s0-s.s1), s.s3==null?'':f1(s.s0-s.s3), s.syms.length, f1(s.m0.r1), f1(s.m0.r3), f1(s.m0.rs3), f1(s.m0.b50), f1(s.m0.b200), s.buys, s.sells]));
+  });
+  document.getElementById('secPicksBtn').addEventListener('click', ()=>{
+    if (!Object.keys(universe).length) return;
+    const an = getSectorAnalysis(), sec = an.sectors.find(s=>s.sector===selectedSector);
+    if (!sec) return;
+    const header = ['Sector','Sector state','Stock','Mcap (Cr)','Price','1m %','3m %','vs Nifty 3m %','Above 50-day','Above 200-day','Latest signal','Signal sessions ago','Fundamentals','Pick score'];
+    const f1 = v=> v==null ? '' : v.toFixed(1);
+    downloadCSV('sector_picks_'+sec.sector.replace(/[^A-Za-z0-9]+/g,'_')+'_'+localISO(new Date())+'.csv', header,
+      sectorPicks(sec, an).map(p=>[sec.sector, sec.state, p.sym, p.mcap||'', p.last.toFixed(2), f1(p.r1), f1(p.r3), f1(p.rs3), p.a50?'yes':'no', p.a200?'yes':'no',
+        p.sig ? p.sig.p.type+' ('+p.sig.sig+')' : '', p.sig ? p.sig.bars : '', p.f.overallLabel, p.score.toFixed(0)]));
+  });
+
   // ---------- Gold & Silver ----------
   document.getElementById('sipAmount').addEventListener('change', ()=>{
     const v = parseFloat(document.getElementById('sipAmount').value);
@@ -2690,7 +3121,7 @@
         const d = src[sym];
         rawData[sym] = {
           dates: d.dates.map(s=>new Date(s)), open:d.open, high:d.high, low:d.low, close:d.close,
-          volume: d.volume || d.close.map(()=>0), marketCapCr: d.marketCapCr, fundamentals: d.fundamentals || {}, events: d.events || {}
+          volume: d.volume || d.close.map(()=>0), marketCapCr: d.marketCapCr, fundamentals: d.fundamentals || {}, events: d.events || {}, nseIndustry: d.nseIndustry || null
         };
       });
       document.getElementById('mainContent').style.display='block'; // show the shell immediately, before the (now non-blocking) scan runs

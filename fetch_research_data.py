@@ -19,6 +19,12 @@ ADDING GOLD & SILVER TO AN EXISTING DATA FILE (no full re-fetch):
     python fetch_research_data.py --metals-only
 refreshes just the index/VIX and gold/silver series inside research_data.json in about a minute.
 
+SECTORS TAB: NSE's own industry label for each stock is read from the Nifty 500 CSV and saved with the
+prices. To add it to an existing data file without re-fetching anything:
+    python fetch_research_data.py --sectors-only                       (downloads the list from NSE)
+    python fetch_research_data.py --sectors-only --csv ind_nifty500list.csv   (if NSE blocks the download)
+Without it the tab still works, grouping stocks from Yahoo's industry text instead.
+
 GOLD & SILVER TAB: the script also pulls GOLDBEES, SILVERBEES, COMEX gold/silver/copper
 futures, GLD, SLV, the US dollar index, the US 10-year yield and USD/INR (see METALS_CONTEXT
 near the top). Use --no-metals to skip them.
@@ -63,6 +69,8 @@ NIFTY50 = ["RELIANCE","TCS","HDFCBANK","ICICIBANK","INFY","BHARTIARTL","ITC","SB
     "BAJAJFINSV","TECHM","INDUSINDBK","GRASIM","DRREDDY","CIPLA","EICHERMOT","BRITANNIA","DIVISLAB","COALINDIA",
     "HEROMOTOCO","BPCL","SBILIFE","HDFCLIFE","APOLLOHOSP","BAJAJ-AUTO","TATACONSUM","UPL","HINDALCO","LTIM"]
 
+INDUSTRY_MAP = {}   # SYMBOL -> NSE industry (e.g. 'Information Technology'), filled from the Nifty 500 CSV
+
 NSE_500_URLS = [
     "https://nsearchives.nseindia.com/content/indices/ind_nifty500list.csv",
     "https://archives.nseindia.com/content/indices/ind_nifty500list.csv",
@@ -93,7 +101,14 @@ def try_download_nifty500():
             with urllib.request.urlopen(req, timeout=15) as resp:
                 text = resp.read().decode("utf-8", errors="ignore")
                 reader = csv.DictReader(io.StringIO(text))
-                symbols = [row["Symbol"].strip() for row in reader if row.get("Symbol")]
+                symbols = []
+                for row in reader:
+                    if not row.get("Symbol"):
+                        continue
+                    sym = row["Symbol"].strip()
+                    symbols.append(sym)
+                    if row.get("Industry"):
+                        INDUSTRY_MAP[sym.upper()] = row["Industry"].strip()
                 if symbols:
                     return symbols
         except Exception as e:
@@ -105,7 +120,16 @@ def load_symbols_from_csv(path):
     with open(path, newline="", encoding="utf-8-sig") as f:
         reader = csv.DictReader(f)
         col = "Symbol" if "Symbol" in reader.fieldnames else reader.fieldnames[2]
-        return [row[col].strip() for row in reader if row.get(col)]
+        ind_col = "Industry" if "Industry" in reader.fieldnames else None
+        symbols = []
+        for row in reader:
+            if not row.get(col):
+                continue
+            sym = row[col].strip()
+            symbols.append(sym)
+            if ind_col and row.get(ind_col):
+                INDUSTRY_MAP[sym.upper()] = row[ind_col].strip()
+        return symbols
 
 
 def get_universe(args):
@@ -155,7 +179,10 @@ LAST_ERROR = {}   # ticker -> short reason for the most recent failure (recorded
 
 
 def fetch_one(yf, symbol, period="4y", retries=3):
-    return fetch_ticker(yf, f"{symbol}.NS", period, retries, want_fundamentals=True)
+    res = fetch_ticker(yf, f"{symbol}.NS", period, retries, want_fundamentals=True)
+    if res is not None:
+        res["nseIndustry"] = INDUSTRY_MAP.get(symbol.upper())   # NSE's own sector label, used by the Sectors tab
+    return res
 
 
 def fetch_ticker(yf, ticker_str, period="4y", retries=3, want_fundamentals=False, retry_empty=False):
@@ -245,6 +272,8 @@ def main():
     parser.add_argument("--out", default="research_data.json")
     parser.add_argument("--period", default="4y")
     parser.add_argument("--no-metals", action="store_true", help="skip the gold/silver context series")
+    parser.add_argument("--sectors-only", action="store_true",
+                        help="add NSE industry labels (for the Sectors tab) to an existing data file - no price re-fetch; uses --csv or downloads the Nifty 500 list")
     parser.add_argument("--metals-only", action="store_true",
                         help="refresh ONLY the index/VIX and gold/silver series inside an existing data file (about a minute; no full re-fetch)")
     args = parser.parse_args()
@@ -254,6 +283,36 @@ def main():
     except ImportError:
         print("Missing dependency. Run: pip install yfinance pandas")
         sys.exit(1)
+
+    if args.sectors_only:
+        if not os.path.exists(args.out):
+            print(f"{args.out} not found. Run the full fetch once first, or run --sectors-only from the folder that contains it.")
+            sys.exit(1)
+        with open(args.out) as f:
+            payload = json.load(f)
+        data = payload.get("data", payload)
+        if args.csv:
+            load_symbols_from_csv(args.csv)
+        else:
+            print("Downloading the Nifty 500 list from NSE for its industry column ...")
+            try_download_nifty500()
+        if not INDUSTRY_MAP:
+            print("Could not get NSE industry labels (NSE often blocks scripted downloads).")
+            print("Download ind_nifty500list.csv from niftyindices.com and run:  python fetch_research_data.py --sectors-only --csv ind_nifty500list.csv")
+            sys.exit(1)
+        tagged = 0
+        stocks = [k for k in data if not k.startswith("_")]
+        for sym in stocks:
+            ind = INDUSTRY_MAP.get(sym.upper())
+            if ind:
+                data[sym]["nseIndustry"] = ind
+                tagged += 1
+        if isinstance(payload, dict) and "data" in payload:
+            payload["data"] = data
+        with open(args.out, "w") as f:
+            json.dump(payload, f)
+        print(f"Tagged {tagged}/{len(stocks)} stocks with an NSE industry in {args.out} (prices untouched). Reload the dashboard.")
+        return
 
     if args.metals_only:
         if not os.path.exists(args.out):
